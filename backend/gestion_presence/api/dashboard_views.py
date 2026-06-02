@@ -11,9 +11,10 @@ from gestion_presence.models import Seance, User
 
 def get_visible_seances(user):
     seances = (
-        Seance.objects.select_related("cours", "cours__module", "cours__filiere", "cours__enseignant")
+        Seance.objects.select_related("cours", "cours__module", "cours__module__filiere", "cours__enseignant")
         .prefetch_related("presences")
         .annotate(presence_count=Count("presences"))
+        .filter(qrcode__isnull=False)
     )
 
     if user.role == User.Role.ADMIN:
@@ -43,13 +44,15 @@ def serialize_seance(seance):
     return {
         "id": str(seance.id),
         "module": cours.module.nom,
-        "filiere": cours.filiere.nom,
+        "filiere": cours.module.filiere.nom,
+        "semestre": cours.module.semestre,
         "cours": f"{cours.heure_debut.strftime('%H:%M')} - {cours.heure_fin.strftime('%H:%M')} | Salle {cours.salle or 'Non precisee'}",
         "date": seance.date_seance.isoformat(),
         "startsAt": seance.heure_debut.isoformat(),
         "expiresAt": expiration.isoformat(),
         "status": "active" if is_active else "expired",
         "presences": seance.presence_count,
+        "scanUrl": seance.qrcode.url_cible if hasattr(seance, "qrcode") else None,
     }
 
 
