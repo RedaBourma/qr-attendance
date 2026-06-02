@@ -26,6 +26,7 @@ services:
       DJANGO_DEBUG:      "False"
       ALLOWED_HOSTS:     "localhost,127.0.0.1,backend"
       HMAC_KEY:          ${HMAC_KEY}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:3000}
     depends_on:
       postgres:
         condition: service_healthy

@@ -2,7 +2,6 @@ from django.conf import settings
 from django.db import models
 
 from .filiere import Filiere
-from .module import Module
 
 
 class Etudiant(models.Model):
@@ -15,11 +14,6 @@ class Etudiant(models.Model):
     filiere = models.ForeignKey(
         Filiere,
         on_delete=models.PROTECT,
-        related_name="etudiants",
-    )
-    modules = models.ManyToManyField(
-        Module,
-        blank=True,
         related_name="etudiants",
     )
     semester = models.CharField(max_length=20)

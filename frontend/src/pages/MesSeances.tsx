@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import SidebarLayout from "../components/Sidebar";
+import { API_BASE } from "../config";
 
 type WeekDay = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -12,6 +14,21 @@ interface TeachingSession {
   filiere: string;
   room: string;
   temporary?: boolean;
+}
+
+interface FiliereOption {
+  id: number;
+  nom: string;
+}
+
+interface SeancesResponse {
+  seances: TeachingSession[];
+  owner?: {
+    nom: string;
+    prenom: string;
+    email: string;
+  } | null;
+  message?: string;
 }
 
 const css = `
@@ -163,7 +180,7 @@ const css = `
     color: var(--gray-600);
     text-align: left;
     font-family: inherit;
-    cursor: not-allowed;
+    cursor: pointer;
     overflow: hidden;
   }
 
@@ -174,6 +191,12 @@ const css = `
     color: var(--gray-800);
     cursor: pointer;
     box-shadow: 0 8px 22px rgba(22,163,74,0.12);
+  }
+
+  .sc-session:not(.is-active):hover {
+    background: var(--blue-soft);
+    border-left-color: var(--blue);
+    color: var(--gray-800);
   }
 
   .sc-session.is-selected {
@@ -288,9 +311,15 @@ const css = `
 
   .sc-temp-form {
     display: grid;
-    grid-template-columns: repeat(4, minmax(120px, 1fr)) auto;
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
     gap: 12px;
     align-items: end;
+  }
+
+  .sc-temp-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
   }
 
   .sc-field {
@@ -357,16 +386,6 @@ const WEEK_DAYS: Array<{ value: WeekDay; label: string }> = [
   { value: 6, label: "Samedi" },
 ];
 
-const SESSIONS: TeachingSession[] = [
-  { id: "s1", day: 1, start: "08:30", end: "10:30", module: "Algorithmique", filiere: "GI S4", room: "B12" },
-  { id: "s2", day: 1, start: "10:30", end: "12:30", module: "Structures de donnees", filiere: "GI S4", room: "B12" },
-  { id: "s3", day: 2, start: "14:30", end: "18:30", module: "Base de donnees", filiere: "GL S6", room: "Lab 2" },
-  { id: "s4", day: 3, start: "08:30", end: "12:30", module: "Reseaux", filiere: "SE S4", room: "C04" },
-  { id: "s5", day: 4, start: "14:30", end: "16:30", module: "Genie logiciel", filiere: "GL S6", room: "A21" },
-  { id: "s6", day: 5, start: "08:30", end: "10:30", module: "Intelligence artificielle", filiere: "DS S6", room: "Lab IA" },
-  { id: "s7", day: 5, start: "14:30", end: "18:30", module: "Projet encadre", filiere: "GI S6", room: "Lab 1" },
-];
-
 const START_MINUTES = toMinutes("08:30");
 const END_MINUTES = toMinutes("18:30");
 const PIXELS_PER_MINUTE = 720 / (END_MINUTES - START_MINUTES);
@@ -399,6 +418,15 @@ function isSessionActive(session: TeachingSession, now: Date) {
     currentMinutes >= toMinutes(session.start) &&
     currentMinutes <= toMinutes(session.end)
   );
+}
+
+function isSessionSelectable(session: TeachingSession, now: Date) {
+  if (session.temporary) {
+    const today = (now.getDay() || 7) as WeekDay;
+    return session.day === today;
+  }
+
+  return isSessionActive(session, now);
 }
 
 function sessionStyle(session: TeachingSession) {
@@ -440,11 +468,20 @@ function getCurrentWeekDay(date: Date): WeekDay {
 }
 
 export default function MesSeancesPage() {
-  const [sessions, setSessions] = useState<TeachingSession[]>(SESSIONS);
+  const navigate = useNavigate();
+  const [sessions, setSessions] = useState<TeachingSession[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [creatingTemp, setCreatingTemp] = useState(false);
+  const [ownerName, setOwnerName] = useState("");
+  const [filieres, setFilieres] = useState<FiliereOption[]>([]);
+  const [semestersByFiliere, setSemestersByFiliere] = useState<Record<string, string[]>>({});
   const [tempModule, setTempModule] = useState("");
-  const [tempFiliere, setTempFiliere] = useState("");
+  const [tempFiliereId, setTempFiliereId] = useState("");
+  const [tempSemestre, setTempSemestre] = useState("");
   const [tempRoom, setTempRoom] = useState("");
   const [tempDuration, setTempDuration] = useState("120");
   const weekStart = useMemo(() => getWeekStart(now), [now]);
@@ -456,44 +493,151 @@ export default function MesSeancesPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedSession && !isSessionActive(selectedSession, now)) {
+    const fetchSessions = async () => {
+      const token = localStorage.getItem("access");
+
+      try {
+        const res = await fetch(`${API_BASE}/seances/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = (await res.json()) as SeancesResponse;
+
+        if (!res.ok) {
+          setError(data.message || "Impossible de charger les seances.");
+          return;
+        }
+
+        setSessions(data.seances);
+        setOwnerName(data.owner ? `${data.owner.prenom} ${data.owner.nom}` : "");
+      } catch {
+        setError("Erreur de connexion au serveur.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSessions();
+  }, []);
+
+  useEffect(() => {
+    const fetchFilters = async () => {
+      const token = localStorage.getItem("access");
+
+      try {
+        const res = await fetch(`${API_BASE}/seances/filters/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          setFilieres(data.filieres || []);
+          setSemestersByFiliere(data.semestersByFiliere || {});
+        }
+      } catch {
+        // Filters are optional; temp form still works with manual semester input.
+      }
+    };
+
+    fetchFilters();
+  }, []);
+
+  useEffect(() => {
+    if (selectedSession && !isSessionSelectable(selectedSession, now)) {
       setSelectedId(null);
     }
   }, [now, selectedSession]);
 
-  const handleCreateTemporarySession = (event: React.FormEvent) => {
+  const availableSemesters = useMemo(() => {
+    if (!tempFiliereId) {
+      return [];
+    }
+
+    return semestersByFiliere[tempFiliereId] || [];
+  }, [tempFiliereId, semestersByFiliere]);
+
+  const handleCreateTemporarySession = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!tempModule.trim() || !tempFiliere.trim()) {
+    if (!tempModule.trim() || !tempFiliereId || !tempSemestre.trim()) {
+      setError("Module, filiere et semestre sont obligatoires.");
       return;
     }
 
-    const start = toTimeInput(now);
-    const temporarySession: TeachingSession = {
-      id: `temp-${Date.now()}`,
-      day: getCurrentWeekDay(now),
-      start,
-      end: addMinutesToTime(start, Number(tempDuration)),
-      module: tempModule.trim(),
-      filiere: tempFiliere.trim(),
-      room: tempRoom.trim() || "Non precisee",
-      temporary: true,
-    };
+    setCreatingTemp(true);
+    setError("");
 
-    setSessions((current) => [...current, temporarySession]);
-    setSelectedId(temporarySession.id);
-    setTempModule("");
-    setTempFiliere("");
-    setTempRoom("");
-    setTempDuration("120");
+    try {
+      const res = await fetch(`${API_BASE}/seances/temporary/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access")}`,
+        },
+        body: JSON.stringify({
+          module: tempModule.trim(),
+          filiere_id: Number(tempFiliereId),
+          semestre: tempSemestre.trim(),
+          salle: tempRoom.trim(),
+          validite_min: Number(tempDuration),
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Impossible de creer la seance temporaire.");
+        return;
+      }
+
+      const created = data.seance as TeachingSession;
+      setSessions((current) => [...current, created]);
+      setSelectedId(created.id);
+      setTempModule("");
+      setTempFiliereId("");
+      setTempSemestre("");
+      setTempRoom("");
+      setTempDuration("120");
+    } catch {
+      setError("Erreur de connexion au serveur.");
+    } finally {
+      setCreatingTemp(false);
+    }
   };
 
-  const handleGenerateQr = () => {
+  const handleGenerateQr = async () => {
     if (!selectedSession) {
       return;
     }
 
-    alert(`Generer le QR code pour: ${selectedSession.module}`);
+    setGenerating(true);
+    setError("");
+
+    try {
+      const res = await fetch(`${API_BASE}/seances/generate-qr/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access")}`,
+        },
+        body: JSON.stringify({
+          cours_id: selectedSession.id,
+          validite_min: Math.max(1, toMinutes(selectedSession.end) - toMinutes(selectedSession.start)),
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Impossible de generer le QR code.");
+        return;
+      }
+
+      navigate(`/qr/${data.seance.id}`);
+    } catch {
+      setError("Erreur de connexion au serveur.");
+    } finally {
+      setGenerating(false);
+    }
   };
 
   return (
@@ -504,7 +648,11 @@ export default function MesSeancesPage() {
           <div className="sc-header">
             <div>
               <div className="sc-title">Emploi du temps hebdomadaire</div>
-              <div className="sc-subtitle">Selection possible uniquement pendant le creneau de la seance.</div>
+              <div className="sc-subtitle">
+                {loading
+                  ? "Chargement des seances..."
+                  : error || `${ownerName ? `Seances de ${ownerName}. ` : ""}Selectionne un cours puis genere son QR code.`}
+              </div>
             </div>
             <div className="sc-now">Maintenant: {formatNow(now)}</div>
           </div>
@@ -541,13 +689,12 @@ export default function MesSeancesPage() {
                     }}
                   />
                   {sessions.filter((session) => session.day === day.value).map((session) => {
-                    const active = isSessionActive(session, now);
+                    const active = isSessionSelectable(session, now);
                     const selected = selectedId === session.id;
 
                     return (
                       <button
                         className={`sc-session${active ? " is-active" : ""}${selected ? " is-selected" : ""}${session.temporary ? " is-temp" : ""}`}
-                        disabled={!active}
                         key={session.id}
                         onClick={() => setSelectedId(session.id)}
                         style={sessionStyle(session)}
@@ -556,7 +703,7 @@ export default function MesSeancesPage() {
                         <div className="sc-session-time">{session.start} - {session.end}</div>
                         <div className="sc-session-meta">{session.filiere} | Salle {session.room}</div>
                         <span className="sc-status">
-                          {active ? (session.temporary ? "Temporaire active" : "Disponible maintenant") : "Hors creneau"}
+                          {active ? (session.temporary ? "Temporaire active" : "Disponible maintenant") : "Planifie"}
                         </span>
                       </button>
                     );
@@ -572,11 +719,15 @@ export default function MesSeancesPage() {
               <p>
                 {selectedSession
                   ? `${selectedSession.filiere} | ${selectedSession.start} - ${selectedSession.end} | Salle ${selectedSession.room}${selectedSession.temporary ? " | Seance temporaire" : ""}`
-                  : "Clique sur une seance active pour la selectionner."}
+                  : "Clique sur une seance pour la selectionner."}
               </p>
             </div>
-            <button className="sc-action" disabled={!selectedSession} onClick={handleGenerateQr}>
-              Generer le QR code
+            <button
+              className="sc-action"
+              disabled={!selectedSession || !isSessionSelectable(selectedSession, now) || generating}
+              onClick={handleGenerateQr}
+            >
+              {generating ? "Generation..." : "Generer le QR code"}
             </button>
           </div>
 
@@ -599,12 +750,47 @@ export default function MesSeancesPage() {
 
               <div className="sc-field">
                 <label>Filiere</label>
-                <input
-                  type="text"
-                  placeholder="Ex: GI S4"
-                  value={tempFiliere}
-                  onChange={(event) => setTempFiliere(event.target.value)}
-                />
+                <select
+                  value={tempFiliereId}
+                  onChange={(event) => {
+                    setTempFiliereId(event.target.value);
+                    setTempSemestre("");
+                  }}
+                  required
+                >
+                  <option value="">Choisir une filiere</option>
+                  {filieres.map((filiere) => (
+                    <option key={filiere.id} value={filiere.id}>
+                      {filiere.nom}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="sc-field">
+                <label>Semestre</label>
+                {availableSemesters.length > 0 ? (
+                  <select
+                    value={tempSemestre}
+                    onChange={(event) => setTempSemestre(event.target.value)}
+                    required
+                  >
+                    <option value="">Choisir un semestre</option>
+                    {availableSemesters.map((semestre) => (
+                      <option key={semestre} value={semestre}>
+                        {semestre}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="Ex: S4"
+                    value={tempSemestre}
+                    onChange={(event) => setTempSemestre(event.target.value)}
+                    required
+                  />
+                )}
               </div>
 
               <div className="sc-field">
@@ -626,9 +812,11 @@ export default function MesSeancesPage() {
                 </select>
               </div>
 
-              <button className="sc-action" type="submit">
-                Ajouter et selectionner
-              </button>
+              <div className="sc-temp-actions">
+                <button className="sc-action" type="submit" disabled={creatingTemp}>
+                  {creatingTemp ? "Creation..." : "Ajouter et selectionner"}
+                </button>
+              </div>
             </form>
           </div>
         </div>

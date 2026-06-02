@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import uniLogo from "../assets/uni_logo.png";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Outfit:wght@500;600;700;800&display=swap";
 
@@ -77,26 +78,22 @@ const css = `
   }
 
   .qrp-logo {
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center;
     margin-bottom: 44px;
     position: relative; z-index: 1;
+    width: fit-content;
+    max-width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.12);
   }
-  .qrp-logo-icon {
-    width: 40px; height: 40px;
-    background: var(--orange);
-    border-radius: 11px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .qrp-logo-icon svg { width: 22px; height: 22px; }
-  .qrp-logo-name {
-    font-family: 'Outfit', sans-serif;
-    font-weight: 700; font-size: 15px;
-    color: #fff; line-height: 1.2;
-  }
-  .qrp-logo-name span {
-    display: block; font-family: 'DM Sans', sans-serif;
-    font-size: 11px; font-weight: 400; opacity: 0.65;
+  .qrp-logo-img {
+    display: block;
+    width: min(220px, 100%);
+    max-height: 72px;
+    object-fit: contain;
+    object-position: left center;
   }
 
   .qrp-tagline {
@@ -283,19 +280,7 @@ function Sidebar() {
   return (
     <aside className="qrp-sidebar">
       <div className="qrp-logo">
-        <div className="qrp-logo-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="7" height="7" rx="1" />
-            <rect x="14" y="3" width="7" height="7" rx="1" />
-            <rect x="3" y="14" width="7" height="7" rx="1" />
-            <rect x="16" y="16" width="2" height="2" /><rect x="20" y="16" width="2" height="2" />
-            <rect x="16" y="20" width="2" height="2" /><rect x="20" y="20" width="2" height="2" />
-          </svg>
-        </div>
-        <div className="qrp-logo-name">
-          QR Présence
-          <span>Système de présence académique</span>
-        </div>
+        <img className="qrp-logo-img" src={uniLogo} alt="Universite Moulay Ismail - Faculte des Sciences" />
       </div>
 
       <h2 className="qrp-tagline">

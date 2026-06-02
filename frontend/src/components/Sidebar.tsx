@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import uniLogo from "../assets/uni_logo.png";
 
 const css = `
   .sb-root {
@@ -55,31 +56,42 @@ const css = `
   .sb-logo {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 24px 18px 20px;
+    padding: 18px;
     border-bottom: 1px solid rgba(255,255,255,0.06);
     overflow: hidden;
     white-space: nowrap;
+    min-height: 84px;
   }
   .sb-logo-icon {
-    width: 36px; height: 36px; flex-shrink: 0;
-    background: var(--orange);
+    width: 176px;
+    max-width: 100%;
+    height: 62px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 10px;
     border-radius: 9px;
-    display: flex; align-items: center; justify-content: center;
+    background: #fff;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.18);
   }
-  .sb-logo-icon svg { width: 20px; height: 20px; }
-  .sb-logo-text {
-    font-family: 'Outfit', sans-serif;
-    font-size: 15px; font-weight: 700;
-    color: #fff; line-height: 1.15;
-    opacity: 1;
-    transition: opacity 0.2s;
-  }
-  .sb-nav.collapsed .sb-logo-text { opacity: 0; pointer-events: none; }
-  .sb-logo-text span {
+  .sb-logo-icon img {
     display: block;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 10px; font-weight: 400; opacity: 0.5;
+    width: 100%;
+    max-height: 46px;
+    object-fit: contain;
+    object-position: center;
+    transition: width 0.2s;
+  }
+  .sb-nav.collapsed .sb-logo-icon {
+    width: 32px;
+    height: 32px;
+    padding: 4px;
+  }
+  .sb-nav.collapsed .sb-logo-icon img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
   }
 
   /* prof card */
@@ -100,6 +112,13 @@ const css = `
     font-family: 'Outfit', sans-serif;
     font-size: 13px; font-weight: 700; color: #fff;
     border: 2px solid rgba(3,125,167,0.5);
+    overflow: hidden;
+  }
+  .sb-avatar img,
+  .sb-avatar-sm img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
   .sb-prof-info {
     overflow: hidden;
@@ -242,6 +261,7 @@ const css = `
     font-size: 13px; font-weight: 700; color: #fff;
     cursor: pointer;
     border: 2px solid var(--blue-glow);
+    overflow: hidden;
   }
 
   /* page body */
@@ -349,6 +369,7 @@ interface StoredUser {
   nom?: string;
   prenom?: string;
   role?: string;
+  profile_picture?: string | null;
 }
 
 function getStoredUser(): StoredUser | null {
@@ -381,6 +402,18 @@ function formatRole(role?: string) {
   return "Utilisateur";
 }
 
+function Avatar({ src, initials, className }: { src?: string | null; initials: string; className: string }) {
+  if (src) {
+    return (
+      <div className={className}>
+        <img src={src} alt="" />
+      </div>
+    );
+  }
+
+  return <div className={className}>{initials}</div>;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function SidebarLayout({
@@ -404,7 +437,8 @@ export default function SidebarLayout({
     .filter((w) => w.length > 1)
     .slice(0, 2)
     .map((w) => w[0].toUpperCase())
-    .join("");
+    .join("") || "U";
+  const profilePicture = storedUser?.profile_picture;
 
   const navSections: NavSection[] = [
     {
@@ -463,6 +497,21 @@ export default function SidebarLayout({
 
     if (item.label.includes("Enseignants")) {
       navigate("/enseignants");
+      return;
+    }
+
+    if (item.label.toLowerCase().includes("qr")) {
+      navigate("/qr");
+      return;
+    }
+
+    // if (item.label.includes("qr") || item.label.includes("QR")) {
+    //   navigate("/qr");
+    //   return;
+    // }
+
+    if (item.label.includes("Param")) {
+      navigate("/parametres");
     }
   };
 
@@ -477,23 +526,13 @@ export default function SidebarLayout({
             {/* Logo */}
             <div className="sb-logo">
               <div className="sb-logo-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7" rx="1"/>
-                  <rect x="14" y="3" width="7" height="7" rx="1"/>
-                  <rect x="3" y="14" width="7" height="7" rx="1"/>
-                  <rect x="16" y="16" width="2" height="2"/><rect x="20" y="16" width="2" height="2"/>
-                  <rect x="16" y="20" width="2" height="2"/><rect x="20" y="20" width="2" height="2"/>
-                </svg>
-              </div>
-              <div className="sb-logo-text">
-                QR Présence
-                <span>Portail académique</span>
+                <img src={uniLogo} alt="Universite Moulay Ismail - Faculte des Sciences" />
               </div>
             </div>
 
             {/* Prof card */}
             <div className="sb-prof">
-              <div className="sb-avatar">{initials}</div>
+              <Avatar className="sb-avatar" src={profilePicture} initials={initials} />
               <div className="sb-prof-info">
                 <div className="sb-prof-name">{displayName}</div>
                 <div className="sb-prof-role">{displayRole}</div>
@@ -541,7 +580,7 @@ export default function SidebarLayout({
                   <BellIcon />
                   <span className="sb-notif-dot" />
                 </button>
-                <div className="sb-avatar-sm">{initials}</div>
+                <Avatar className="sb-avatar-sm" src={profilePicture} initials={initials} />
               </div>
             </header>
 

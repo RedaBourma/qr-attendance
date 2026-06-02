@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import SidebarLayout from "../components/Sidebar";
 
 type SeanceStatus = "active" | "expired";
@@ -262,6 +263,7 @@ function formatTime(iso: string) {
 }
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | SeanceStatus>("all");
   const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
@@ -409,10 +411,9 @@ export default function DashboardPage() {
                         <td>
                           <button
                             className="db-qr-btn"
-                            disabled={seance.status !== "active"}
-                            onClick={() => alert(`Afficher QR pour: ${seance.module}`)}
+                            onClick={() => navigate(`/qr/${seance.id}`)}
                           >
-                            Voir QR
+                            {seance.status === "active" ? "Voir QR" : "Resultats"}
                           </button>
                         </td>
                       </tr>

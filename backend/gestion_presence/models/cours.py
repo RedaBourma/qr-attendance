@@ -1,7 +1,7 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 
 from .enseignant import Enseignant
-from .filiere import Filiere
 from .module import Module
 
 
@@ -19,11 +19,6 @@ class Cours(models.Model):
         on_delete=models.CASCADE,
         related_name="cours",
     )
-    filiere = models.ForeignKey(
-        Filiere,
-        on_delete=models.PROTECT,
-        related_name="cours",
-    )
     enseignant = models.ForeignKey(
         Enseignant,
         on_delete=models.CASCADE,
@@ -38,16 +33,20 @@ class Cours(models.Model):
     class Meta:
         db_table = "cours"
         ordering = ["jour", "heure_debut", "module__nom"]
-        unique_together = ("module", "filiere", "enseignant", "jour", "heure_debut")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["module", "enseignant", "jour", "heure_debut"],
+                name="unique_cours_assignment",
+            ),
+        ]
+
+    def clean(self):
+        if self.heure_debut and self.heure_fin and self.heure_fin <= self.heure_debut:
+            raise ValidationError({"heure_fin": "L'heure de fin doit etre apres l'heure de debut."})
 
     def save(self, *args, **kwargs):
-        if self.module_id and not self.filiere_id:
-            self.filiere = self.module.filiere
-
-        if self.module_id and self.filiere_id and self.module.filiere_id != self.filiere_id:
-            raise ValueError("La filiere du cours doit correspondre a la filiere du module.")
-
+        self.clean()
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return f"{self.module.nom} - {self.filiere} - {self.enseignant}"
+        return f"{self.module.nom} - {self.module.filiere} - {self.enseignant}"

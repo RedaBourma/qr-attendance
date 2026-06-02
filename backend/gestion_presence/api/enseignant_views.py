@@ -4,20 +4,15 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from gestion_presence.models import Enseignant, User
+from gestion_presence.api.auth_views import serialize_user
 
 
-def serialize_enseignant(enseignant):
+def serialize_enseignant(enseignant, request=None):
     user = enseignant.user
 
     return {
         "id": enseignant.id,
-        "user": {
-            "id": user.id,
-            "nom": user.nom,
-            "prenom": user.prenom,
-            "email": user.email,
-            "role": user.role,
-        },
+        "user": serialize_user(user, request),
         "cours_count": enseignant.cours.count(),
     }
 
@@ -31,7 +26,7 @@ def list_enseignants(request):
         )
 
     enseignants = Enseignant.objects.select_related("user").prefetch_related("cours").all()
-    return Response({"enseignants": [serialize_enseignant(enseignant) for enseignant in enseignants]})
+    return Response({"enseignants": [serialize_enseignant(enseignant, request) for enseignant in enseignants]})
 
 
 @api_view(["POST"])
@@ -70,6 +65,6 @@ def create_enseignant(request):
         )
 
     return Response(
-        serialize_enseignant(enseignant),
+        serialize_enseignant(enseignant, request),
         status=status.HTTP_201_CREATED,
     )
