@@ -916,7 +916,6 @@ export default function EtudiantsPage() {
                       <th>Etudiant</th>
                       <th>Code Massar</th>
                       <th>Filiere</th>
-                      <th>Modules</th>
                       {role === "admin" && <th>Actions</th>}
                     </tr>
                   </thead>
@@ -929,15 +928,6 @@ export default function EtudiantsPage() {
                         </td>
                         <td>{etudiant.code_massar}</td>
                         <td><span className="et-badge">{etudiant.filiere.nom}</span></td>
-                        <td>
-                          <div className="et-modules">
-                            {etudiant.modules.map((module) => (
-                              <span className="et-module" key={module.id}>
-                                {module.nom} ({module.semestre})
-                              </span>
-                            ))}
-                          </div>
-                        </td>
                         {role === "admin" && (
                           <td>
                             <div style={{ display: "flex", gap: "8px" }}>
