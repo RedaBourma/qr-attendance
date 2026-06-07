@@ -401,6 +401,12 @@ def close_qr_session(request, seance_id):
 
 @api_view(["GET"])
 def export_qr_session(request, seance_id):
+    import io
+    import os
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.drawing.image import Image
+
     if is_temporary_id(seance_id):
         temp_id = parse_temporary_id(seance_id)
         seance = TemporarySeance.objects.select_related("module", "module__filiere").prefetch_related("presences").filter(id=temp_id).first()
@@ -423,22 +429,140 @@ def export_qr_session(request, seance_id):
     if export_type in ["all", "absent"]:
         rows.extend([("absent", student) for student in data["missed"]])
 
-    response = HttpResponse(content_type="text/csv; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="presence_seance_{seance.id}_{export_type}.csv"'
-    response.write("\ufeff")
-    writer = csv.writer(response)
-    writer.writerow(["statut", "nom", "prenom", "code_massar", "filiere", "validation"])
+    # Generate workbook
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Présence"
 
-    for row_status, student in rows:
-        writer.writerow([
-            row_status,
-            student["nom"],
-            student["prenom"],
-            student["code_massar"],
-            student["filiere"],
-            student["validated_at"] or "",
-        ])
+    # Show gridlines explicitly
+    ws.views.sheetView[0].showGridLines = True
 
+    # Logo resolution and insertion
+    logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uni_logo.png")
+    if os.path.exists(logo_path):
+        img = Image(logo_path)
+        # Scale logo to height = 55px
+        scale = 55 / img.height
+        img.width = int(img.width * scale)
+        img.height = 55
+        ws.add_image(img, "A1")
+
+    # Header text
+    ws["C1"] = "UNIVERSITÉ MOULAY ISMAÏL"
+    ws["C1"].font = Font(name="Arial", size=10, bold=True, color="1A2236")
+
+    ws["C2"] = "FEUILLE D'ÉMARGEMENT & DE PRÉSENCE"
+    ws["C2"].font = Font(name="Arial", size=12, bold=True, color="037DA7")
+
+    ws["C3"] = f"Cours: {data.get('cours', '')} | Salle: {data.get('room', '')}"
+    ws["C3"].font = Font(name="Arial", size=9, italic=True, color="64748B")
+
+    # Session details in the top right
+    filiere_nom = data.get("filiere", "")
+    module_nom = data.get("module", "")
+    
+    is_temp = isinstance(seance, TemporarySeance)
+    if is_temp:
+        enseignant_name = f"{seance.enseignant.user.prenom} {seance.enseignant.user.nom}"
+    else:
+        enseignant_name = f"{seance.cours.enseignant.user.prenom} {seance.cours.enseignant.user.nom}"
+
+    ws["F1"] = f"Filière : {filiere_nom}"
+    ws["F1"].font = Font(name="Arial", size=9, bold=True)
+    ws["F2"] = f"Module : {module_nom}"
+    ws["F2"].font = Font(name="Arial", size=9, bold=True)
+    ws["F3"] = f"Enseignant : {enseignant_name}"
+    ws["F3"].font = Font(name="Arial", size=9, bold=True)
+
+    # General info & summary statistics
+    date_seance = data.get("date", "")
+    ws["A5"] = f"Date: {date_seance} | Type d'export: {export_type.upper()}"
+    ws["A5"].font = Font(name="Arial", size=9.5, bold=True, color="1A2236")
+    
+    ws["D5"] = f"Présents: {data['presentCount']} | Absents: {data['absentCount']} | Total: {data['eligibleCount']}"
+    ws["D5"].font = Font(name="Arial", size=9.5, bold=True, color="037DA7")
+
+    # Table Header Row at Row 7
+    headers = ["N°", "Statut", "Nom", "Prénom", "Code Massar", "Filière", "Heure de Validation"]
+    for col_idx, text in enumerate(headers, 1):
+        cell = ws.cell(row=7, column=col_idx, value=text)
+        cell.font = Font(name="Arial", size=10, bold=True, color="FFFFFF")
+        cell.fill = PatternFill(start_color="1A2236", end_color="1A2236", fill_type="solid")
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Border styling
+    thin_border = Border(
+        left=Side(style='thin', color='DDE3EE'),
+        right=Side(style='thin', color='DDE3EE'),
+        top=Side(style='thin', color='DDE3EE'),
+        bottom=Side(style='thin', color='DDE3EE')
+    )
+
+    # Populate table rows starting from row 8
+    current_row = 8
+    for idx, (row_status, student) in enumerate(rows, 1):
+        ws.cell(row=current_row, column=1, value=idx)
+        ws.cell(row=current_row, column=2, value="Présent" if row_status == "present" else "Absent")
+        ws.cell(row=current_row, column=3, value=student["nom"])
+        ws.cell(row=current_row, column=4, value=student["prenom"])
+        ws.cell(row=current_row, column=5, value=student["code_massar"])
+        ws.cell(row=current_row, column=6, value=student["filiere"])
+
+        # Format validation date time
+        val_time = ""
+        if row_status == "present" and student["validated_at"]:
+            try:
+                dt = datetime.fromisoformat(student["validated_at"])
+                val_time = dt.strftime("%d/%m/%Y %H:%M:%S")
+            except Exception:
+                val_time = student["validated_at"]
+        ws.cell(row=current_row, column=7, value=val_time)
+
+        # Apply styles
+        is_even = idx % 2 == 0
+        row_fill = PatternFill(start_color="F8FAFC" if is_even else "FFFFFF", end_color="F8FAFC" if is_even else "FFFFFF", fill_type="solid")
+        
+        status_color = "16A34A" if row_status == "present" else "DC2626"
+        status_font = Font(name="Arial", size=9, bold=True, color=status_color)
+
+        for col_idx in range(1, 8):
+            cell = ws.cell(row=current_row, column=col_idx)
+            cell.font = Font(name="Arial", size=9) if col_idx != 2 else status_font
+            cell.fill = row_fill
+            cell.border = thin_border
+            
+            if col_idx in [1, 2, 5, 7]:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            else:
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+
+        current_row += 1
+
+    # Adjust column dimensions to content (ignoring header rows 1-5 to prevent super-wide columns)
+    for col in ws.columns:
+        max_len = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            if cell.row < 7:
+                continue
+            val = str(cell.value or '')
+            if len(val) > max_len:
+                max_len = len(val)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+
+    # Ensure validation date column has sufficient width
+    ws.column_dimensions["G"].width = 24
+
+    # Save to memory and return Excel file response
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="presence_seance_{seance.id}_{export_type}.xlsx"'
     return response
 
 
