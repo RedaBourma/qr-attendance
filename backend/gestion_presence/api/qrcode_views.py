@@ -434,30 +434,38 @@ def export_qr_session(request, seance_id):
     ws = wb.active
     ws.title = "Présence"
 
-    # Show gridlines explicitly
-    ws.views.sheetView[0].showGridLines = True
+    # Disable gridlines globally to get the clean "Word page" look
+    ws.views.sheetView[0].showGridLines = False
 
-    # Logo resolution and insertion
+    # Column A acts as left margin (width = 5)
+    ws.column_dimensions["A"].width = 5
+
+    # Logo resolution and insertion (anchored at B1, scaled to height = 55px)
     logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uni_logo.png")
     if os.path.exists(logo_path):
         img = Image(logo_path)
-        # Scale logo to height = 55px
         scale = 55 / img.height
         img.width = int(img.width * scale)
         img.height = 55
-        ws.add_image(img, "A1")
+        ws.add_image(img, "B1")
 
-    # Header text
+    # Header text centered across columns C to H
+    ws.merge_cells("C1:H1")
     ws["C1"] = "UNIVERSITÉ MOULAY ISMAÏL"
     ws["C1"].font = Font(name="Arial", size=10, bold=True, color="1A2236")
+    ws["C1"].alignment = Alignment(horizontal="center", vertical="center")
 
+    ws.merge_cells("C2:H2")
     ws["C2"] = "FEUILLE D'ÉMARGEMENT & DE PRÉSENCE"
     ws["C2"].font = Font(name="Arial", size=12, bold=True, color="037DA7")
+    ws["C2"].alignment = Alignment(horizontal="center", vertical="center")
 
+    ws.merge_cells("C3:H3")
     ws["C3"] = f"Cours: {data.get('cours', '')} | Salle: {data.get('room', '')}"
     ws["C3"].font = Font(name="Arial", size=9, italic=True, color="64748B")
+    ws["C3"].alignment = Alignment(horizontal="center", vertical="center")
 
-    # Session details in the top right
+    # Session details in columns B, E, and G
     filiere_nom = data.get("filiere", "")
     module_nom = data.get("module", "")
     
@@ -467,30 +475,30 @@ def export_qr_session(request, seance_id):
     else:
         enseignant_name = f"{seance.cours.enseignant.user.prenom} {seance.cours.enseignant.user.nom}"
 
-    ws["F1"] = f"Filière : {filiere_nom}"
-    ws["F1"].font = Font(name="Arial", size=9, bold=True)
-    ws["F2"] = f"Module : {module_nom}"
-    ws["F2"].font = Font(name="Arial", size=9, bold=True)
-    ws["F3"] = f"Enseignant : {enseignant_name}"
-    ws["F3"].font = Font(name="Arial", size=9, bold=True)
+    ws["B5"] = f"Filière : {filiere_nom}"
+    ws["B5"].font = Font(name="Arial", size=9, bold=True)
+    ws["E5"] = f"Module : {module_nom}"
+    ws["E5"].font = Font(name="Arial", size=9, bold=True)
+    ws["G5"] = f"Enseignant : {enseignant_name}"
+    ws["G5"].font = Font(name="Arial", size=9, bold=True)
 
     # General info & summary statistics
     date_seance = data.get("date", "")
-    ws["A5"] = f"Date: {date_seance} | Type d'export: {export_type.upper()}"
-    ws["A5"].font = Font(name="Arial", size=9.5, bold=True, color="1A2236")
+    ws["B6"] = f"Date : {date_seance} | Type d'export : {export_type.upper()}"
+    ws["B6"].font = Font(name="Arial", size=9.5, bold=True, color="1A2236")
     
-    ws["D5"] = f"Présents: {data['presentCount']} | Absents: {data['absentCount']} | Total: {data['eligibleCount']}"
-    ws["D5"].font = Font(name="Arial", size=9.5, bold=True, color="037DA7")
+    ws["E6"] = f"Présents: {data['presentCount']} | Absents: {data['absentCount']} | Total: {data['eligibleCount']}"
+    ws["E6"].font = Font(name="Arial", size=9.5, bold=True, color="037DA7")
 
-    # Table Header Row at Row 7
+    # Table Header Row at Row 8 (shifted to start from Column B (2) through H (8))
     headers = ["N°", "Statut", "Nom", "Prénom", "Code Massar", "Filière", "Heure de Validation"]
-    for col_idx, text in enumerate(headers, 1):
-        cell = ws.cell(row=7, column=col_idx, value=text)
+    for idx, text in enumerate(headers, 2):
+        cell = ws.cell(row=8, column=idx, value=text)
         cell.font = Font(name="Arial", size=10, bold=True, color="FFFFFF")
         cell.fill = PatternFill(start_color="1A2236", end_color="1A2236", fill_type="solid")
         cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Border styling
+    # Border styling - only applied to the data table itself to make it look like a Word grid insert
     thin_border = Border(
         left=Side(style='thin', color='DDE3EE'),
         right=Side(style='thin', color='DDE3EE'),
@@ -498,15 +506,15 @@ def export_qr_session(request, seance_id):
         bottom=Side(style='thin', color='DDE3EE')
     )
 
-    # Populate table rows starting from row 8
-    current_row = 8
+    # Populate table rows starting from row 9
+    current_row = 9
     for idx, (row_status, student) in enumerate(rows, 1):
-        ws.cell(row=current_row, column=1, value=idx)
-        ws.cell(row=current_row, column=2, value="Présent" if row_status == "present" else "Absent")
-        ws.cell(row=current_row, column=3, value=student["nom"])
-        ws.cell(row=current_row, column=4, value=student["prenom"])
-        ws.cell(row=current_row, column=5, value=student["code_massar"])
-        ws.cell(row=current_row, column=6, value=student["filiere"])
+        ws.cell(row=current_row, column=2, value=idx) # Col B
+        ws.cell(row=current_row, column=3, value="Présent" if row_status == "present" else "Absent") # Col C
+        ws.cell(row=current_row, column=4, value=student["nom"]) # Col D
+        ws.cell(row=current_row, column=5, value=student["prenom"]) # Col E
+        ws.cell(row=current_row, column=6, value=student["code_massar"]) # Col F
+        ws.cell(row=current_row, column=7, value=student["filiere"]) # Col G
 
         # Format validation date time
         val_time = ""
@@ -516,7 +524,7 @@ def export_qr_session(request, seance_id):
                 val_time = dt.strftime("%d/%m/%Y %H:%M:%S")
             except Exception:
                 val_time = student["validated_at"]
-        ws.cell(row=current_row, column=7, value=val_time)
+        ws.cell(row=current_row, column=8, value=val_time) # Col H
 
         # Apply styles
         is_even = idx % 2 == 0
@@ -525,25 +533,28 @@ def export_qr_session(request, seance_id):
         status_color = "16A34A" if row_status == "present" else "DC2626"
         status_font = Font(name="Arial", size=9, bold=True, color=status_color)
 
-        for col_idx in range(1, 8):
+        for col_idx in range(2, 9): # Columns B to H
             cell = ws.cell(row=current_row, column=col_idx)
-            cell.font = Font(name="Arial", size=9) if col_idx != 2 else status_font
+            cell.font = Font(name="Arial", size=9) if col_idx != 3 else status_font
             cell.fill = row_fill
             cell.border = thin_border
             
-            if col_idx in [1, 2, 5, 7]:
+            # Center N°, Status, Massar, Validation time
+            if col_idx in [2, 3, 6, 8]:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
             else:
                 cell.alignment = Alignment(horizontal="left", vertical="center")
 
         current_row += 1
 
-    # Adjust column dimensions to content (ignoring header rows 1-5 to prevent super-wide columns)
+    # Adjust column dimensions to content (ignoring header rows 1-6 to prevent stretching)
     for col in ws.columns:
         max_len = 0
         col_letter = col[0].column_letter
+        if col_letter == "A":
+            continue
         for cell in col:
-            if cell.row < 7:
+            if cell.row < 8:
                 continue
             val = str(cell.value or '')
             if len(val) > max_len:
@@ -551,7 +562,7 @@ def export_qr_session(request, seance_id):
         ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
 
     # Ensure validation date column has sufficient width
-    ws.column_dimensions["G"].width = 24
+    ws.column_dimensions["H"].width = 24
 
     # Save to memory and return Excel file response
     buffer = io.BytesIO()
@@ -564,6 +575,7 @@ def export_qr_session(request, seance_id):
     )
     response["Content-Disposition"] = f'attachment; filename="presence_seance_{seance.id}_{export_type}.xlsx"'
     return response
+
 
 
 @api_view(["GET"])
