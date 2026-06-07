@@ -1,6 +1,7 @@
 from django.db import IntegrityError, transaction
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from gestion_presence.models import Enseignant, User
@@ -32,6 +33,7 @@ def list_enseignants(request):
 
 
 @api_view(["POST"])
+@parser_classes([MultiPartParser, FormParser])
 def create_enseignant(request):
     if request.user.role != User.Role.ADMIN:
         return Response(
@@ -56,8 +58,32 @@ def create_enseignant(request):
     if not password:
         password = f"{nom.lower()}@{prenom.lower()}"
 
-    filiere_ids = request.data.get("filiere_ids") or []
-    module_ids = request.data.get("module_ids") or []
+    # Handle lists from either JSON or multipart form data
+    filiere_ids = request.data.getlist("filiere_ids")
+    if not filiere_ids and "filiere_ids" in request.data:
+        val = request.data.get("filiere_ids")
+        if isinstance(val, list):
+            filiere_ids = val
+        elif isinstance(val, str):
+            import json
+            try:
+                filiere_ids = json.loads(val)
+            except ValueError:
+                pass
+
+    module_ids = request.data.getlist("module_ids")
+    if not module_ids and "module_ids" in request.data:
+        val = request.data.get("module_ids")
+        if isinstance(val, list):
+            module_ids = val
+        elif isinstance(val, str):
+            import json
+            try:
+                module_ids = json.loads(val)
+            except ValueError:
+                pass
+
+    profile_picture = request.FILES.get("profile_picture")
 
     try:
         with transaction.atomic():
@@ -68,6 +94,10 @@ def create_enseignant(request):
                 prenom=prenom,
                 role=User.Role.ENSEIGNANT,
             )
+            if profile_picture:
+                user.profile_picture = profile_picture
+                user.save(update_fields=["profile_picture"])
+
             enseignant = Enseignant.objects.create(user=user)
             if filiere_ids:
                 enseignant.filieres.set(filiere_ids)
@@ -86,6 +116,7 @@ def create_enseignant(request):
 
 
 @api_view(["PATCH", "POST"])
+@parser_classes([MultiPartParser, FormParser])
 def update_enseignant(request, enseignant_id):
     if request.user.role != User.Role.ADMIN:
         return Response(
@@ -108,8 +139,33 @@ def update_enseignant(request, enseignant_id):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    filiere_ids = request.data.get("filiere_ids") or []
-    module_ids = request.data.get("module_ids") or []
+    # Handle lists from either JSON or multipart form data
+    filiere_ids = request.data.getlist("filiere_ids")
+    if not filiere_ids and "filiere_ids" in request.data:
+        val = request.data.get("filiere_ids")
+        if isinstance(val, list):
+            filiere_ids = val
+        elif isinstance(val, str):
+            import json
+            try:
+                filiere_ids = json.loads(val)
+            except ValueError:
+                pass
+
+    module_ids = request.data.getlist("module_ids")
+    if not module_ids and "module_ids" in request.data:
+        val = request.data.get("module_ids")
+        if isinstance(val, list):
+            module_ids = val
+        elif isinstance(val, str):
+            import json
+            try:
+                module_ids = json.loads(val)
+            except ValueError:
+                pass
+
+    profile_picture = request.FILES.get("profile_picture")
+    remove_picture = request.data.get("remove_profile_picture") == "true" or request.data.get("remove_profile_picture") is True
 
     try:
         with transaction.atomic():
@@ -120,7 +176,18 @@ def update_enseignant(request, enseignant_id):
                 user.email = email
             if password:
                 user.set_password(password)
+
+            if remove_picture:
+                if user.profile_picture:
+                    user.profile_picture.delete(save=False)
+                    user.profile_picture = None
+            elif profile_picture:
+                if user.profile_picture:
+                    user.profile_picture.delete(save=False)
+                user.profile_picture = profile_picture
+
             user.save()
+
             enseignant.filieres.set(filiere_ids)
             enseignant.modules.set(module_ids)
     except IntegrityError:

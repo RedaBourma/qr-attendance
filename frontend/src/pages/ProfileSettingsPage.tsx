@@ -415,7 +415,12 @@ export default function ProfileSettingsPage() {
               />
             </div>
             <button type="submit" className="profile-btn" disabled={passwordSubmitting}>
-              {passwordSubmitting ? "Modification..." : "Modifier le mot de passe"}
+              {passwordSubmitting ? (
+                <>
+                  <span className="spinner"></span>
+                  Modification...
+                </>
+              ) : "Modifier le mot de passe"}
             </button>
           </form>
           {passwordMessage && (

@@ -452,6 +452,8 @@ export default function EtudiantsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({
     nom: "",
     prenom: "",
@@ -556,6 +558,7 @@ export default function EtudiantsPage() {
   const handleUpdateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStudent) return;
+    setUpdating(true);
     setError("");
 
     try {
@@ -584,6 +587,8 @@ export default function EtudiantsPage() {
       setEditingStudent(null);
     } catch {
       setError("Erreur de connexion avec le serveur.");
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -593,6 +598,7 @@ export default function EtudiantsPage() {
 
   const handleDeleteStudent = async () => {
     if (!deletingStudentId) return;
+    setDeleting(true);
     setError("");
 
     try {
@@ -614,6 +620,8 @@ export default function EtudiantsPage() {
       setDeletingStudentId(null);
     } catch {
       setError("Erreur de connexion avec le serveur.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -793,7 +801,12 @@ export default function EtudiantsPage() {
                   </div>
                   <div className="et-form-actions">
                     <button className="et-btn" type="submit" disabled={creating} style={{ marginBottom: "14px" }}>
-                      {creating ? "Ajout..." : "Ajouter"}
+                      {creating ? (
+                        <>
+                          <span className="spinner"></span>
+                          Ajout...
+                        </>
+                      ) : "Ajouter l'étudiant"}
                     </button>
                   </div>
                 </form>
@@ -822,12 +835,17 @@ export default function EtudiantsPage() {
 
                   <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
                     <button
-                      type="button"
                       className="et-btn"
+                      type="button"
                       disabled={importing || !importFiliere || !importFile}
                       onClick={handleImportExcel}
                     >
-                      {importing ? "Importation en cours..." : "Importer les étudiants"}
+                      {importing ? (
+                        <>
+                          <span className="spinner"></span>
+                          Importation...
+                        </>
+                      ) : "Importer les étudiants"}
                     </button>
                   </div>
 
@@ -884,7 +902,10 @@ export default function EtudiantsPage() {
 
           <div className="et-table-card">
             {loading ? (
-              <div className="et-state">Chargement des etudiants...</div>
+              <div className="et-state" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0" }}>
+                <div className="spinner" style={{ width: "30px", height: "30px", borderWidth: "3px", borderColor: "rgba(3,125,167,0.2)", borderTopColor: "var(--blue)" }}></div>
+                <p style={{ marginTop: "12px", color: "var(--gray-400)", fontSize: "14px" }}>Chargement des etudiants...</p>
+              </div>
             ) : filteredEtudiants.length === 0 ? (
               <div className="et-state">Aucun etudiant trouve.</div>
             ) : (
@@ -1012,8 +1033,13 @@ export default function EtudiantsPage() {
                     <button type="button" className="et-btn-secondary" onClick={() => setEditingStudent(null)}>
                       Annuler
                     </button>
-                    <button type="submit" className="et-btn" style={{ width: "auto" }}>
-                      Enregistrer
+                    <button type="submit" className="et-btn" disabled={updating} style={{ width: "auto" }}>
+                      {updating ? (
+                        <>
+                          <span className="spinner"></span>
+                          Enregistrement...
+                        </>
+                      ) : "Enregistrer"}
                     </button>
                   </div>
                 </form>
@@ -1033,8 +1059,13 @@ export default function EtudiantsPage() {
                   <button type="button" className="et-btn-secondary" onClick={() => setDeletingStudentId(null)}>
                     Annuler
                   </button>
-                  <button type="button" className="et-btn-danger" onClick={handleDeleteStudent}>
-                    Supprimer
+                  <button type="button" className="et-btn-danger" disabled={deleting} onClick={handleDeleteStudent}>
+                    {deleting ? (
+                      <>
+                        <span className="spinner" style={{ borderTopColor: "#fff" }}></span>
+                        Suppression...
+                      </>
+                    ) : "Supprimer"}
                   </button>
                 </div>
               </div>
