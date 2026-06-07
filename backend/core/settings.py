@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import dj_database_url
 from datetime import timedelta
 from pathlib import Path
 
@@ -52,6 +53,11 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+# Auto-add Render external hostname to ALLOWED_HOSTS if deployed on Render
+render_host = os.getenv('RENDER_EXTERNAL_HOSTNAME')
+if render_host:
+    ALLOWED_HOSTS.append(render_host)
+
 
 # Application definition
 
@@ -87,6 +93,7 @@ SIMPLE_JWT = {
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -119,14 +126,11 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB'),
-        'USER': os.getenv('POSTGRES_USER'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-        'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
-        'PORT': os.getenv('POSTGRES_PORT', '5433'),
-    }
+    'default': dj_database_url.config(
+        default=f"postgresql://{os.getenv('POSTGRES_USER', '')}:{os.getenv('POSTGRES_PASSWORD', '')}@{os.getenv('POSTGRES_HOST', 'localhost')}:{os.getenv('POSTGRES_PORT', '5433')}/{os.getenv('POSTGRES_DB', '')}",
+        conn_max_age=600,
+        ssl_require=True if os.getenv('DATABASE_URL') else False
+    )
 }
 
 
@@ -155,8 +159,21 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+frontend_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
+if frontend_origins:
+    CORS_ALLOWED_ORIGINS.extend([origin.strip() for origin in frontend_origins.split(",") if origin.strip()])
 
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
+if csrf_origins:
+    CSRF_TRUSTED_ORIGINS.extend([origin.strip() for origin in csrf_origins.split(",") if origin.strip()])
 ###
 
 # Internationalization
