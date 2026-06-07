@@ -16,8 +16,6 @@ class Etudiant(models.Model):
         on_delete=models.PROTECT,
         related_name="etudiants",
     )
-    semester = models.CharField(max_length=20)
-    niveau = models.CharField(max_length=20)
 
     class Meta:
         db_table = "etudiants"

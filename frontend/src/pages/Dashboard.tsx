@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SidebarLayout from "../components/Sidebar";
+import { API_BASE } from "../config";
 
 type SeanceStatus = "active" | "expired";
 
@@ -36,8 +37,6 @@ const EMPTY_STATS: DashboardStats = {
 };
 
 const css = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Outfit:wght@500;600;700;800&display=swap');
-
   .db-root {
     --blue: #037da7;
     --blue-dark: #025f80;
@@ -277,7 +276,7 @@ export default function DashboardPage() {
       setError("");
 
       try {
-        const res = await fetch("http://localhost:8000/api/dashboard/", {
+        const res = await fetch(`${API_BASE}/dashboard/`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("access")}`,
           },

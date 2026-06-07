@@ -14,7 +14,7 @@ class Module(models.Model):
 
     class Meta:
         db_table = "modules"
-        ordering = ["nom", "semestre"]
+        ordering = ["filiere__nom", "semestre", "nom"]
         unique_together = ("nom", "filiere", "semestre")
 
     def __str__(self) -> str:

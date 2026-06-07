@@ -370,7 +370,9 @@ export default function LoginPage() {
       localStorage.setItem("refresh", data.refresh);
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      navigate("/dashboard", { replace: true });
+      const role = data.user?.role;
+      const destination = role === "admin" ? "/statistiques" : role === "enseignant" ? "/dashboard" : "/seances";
+      navigate(destination, { replace: true });
 
     }catch(err) {
       alert("Erreur de connexion. Veuillez réessayer.");

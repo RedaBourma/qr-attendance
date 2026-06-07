@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import uniLogo from "../assets/uni_logo.png";
 
 const css = `
@@ -293,12 +293,6 @@ interface NavSection {
   items: NavItem[];
 }
 
-const DashIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/>
-    <rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/>
-  </svg>
-);
 const SeanceIcon = () => (
   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="4" width="14" height="13" rx="1.5"/>
@@ -359,7 +353,7 @@ interface SidebarLayoutProps {
   /** Professor full name */
   profName?: string;
   /** Currently active page key */
-  activePage?: "dashboard" | "seances" | "qr" | "etudiants" | "enseignants" | "statistiques" | "parametres";
+  activePage?: "dashboard" | "seances" | "academic" | "qr" | "etudiants" | "enseignants" | "statistiques" | "parametres";
   /** Page title shown in topbar */
   pageTitle?: string;
   children: React.ReactNode;
@@ -424,6 +418,7 @@ export default function SidebarLayout({
 }: SidebarLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const storedUser = getStoredUser();
   const displayName =
     profName ||
@@ -439,29 +434,45 @@ export default function SidebarLayout({
     .map((w) => w[0].toUpperCase())
     .join("") || "U";
   const profilePicture = storedUser?.profile_picture;
+  const isActivePath = (path?: string) => {
+    if (!path) {
+      return false;
+    }
+
+    if (path === "/qr") {
+      return location.pathname === "/qr" || location.pathname.startsWith("/qr/");
+    }
+
+    return location.pathname === path;
+  };
 
   const navSections: NavSection[] = [
     {
       section: "PRINCIPAL",
       items: [
-        { label: "Tableau de bord", icon: <DashIcon />, active: activePage === "dashboard" },
-        { label: "Mes séances", icon: <SeanceIcon />, active: activePage === "seances", badge: "12" },
-        { label: "QR Codes", icon: <QrIcon />, active: activePage === "qr" },
+        ...(isAdmin ? [{ label: "Statistiques", icon: <StatsIcon />, active: activePage === "statistiques", path: "/statistiques" }] : []),
+        ...(!isAdmin ? [{ label: "Tableau de bord", icon: <StatsIcon />, active: activePage === "dashboard", path: "/dashboard" }] : []),
+        {
+          label: isAdmin ? "Gestion emploi" : "Mes seances",
+          icon: <SeanceIcon />,
+          active: isAdmin ? activePage === "academic" : activePage === "seances",
+          path: isAdmin ? "/gestion-academique" : "/seances",
+        },
+        ...(!isAdmin ? [{ label: "QR Codes", icon: <QrIcon />, active: activePage === "qr", path: "/qr" }] : []),
       ],
     },
     {
       section: "GESTION",
       items: [
-        { label: "Étudiants", icon: <StudentsIcon />, active: activePage === "etudiants" },
-        ...(isAdmin ? [{ label: "Enseignants", icon: <StudentsIcon />, active: activePage === "enseignants" }] : []),
-        { label: "Statistiques", icon: <StatsIcon />, active: activePage === "statistiques" },
+        { label: "Etudiants", icon: <StudentsIcon />, active: activePage === "etudiants", path: "/etudiants" },
+        ...(isAdmin ? [{ label: "Enseignants", icon: <StudentsIcon />, active: activePage === "enseignants", path: "/enseignants" }] : []),
       ],
     },
     {
       section: "COMPTE",
       items: [
-        { label: "Paramètres", icon: <SettingsIcon />, active: activePage === "parametres" },
-        { label: "Déconnexion", icon: <LogoutIcon /> },
+        { label: "Parametres", icon: <SettingsIcon />, active: activePage === "parametres", path: "/parametres" },
+        { label: "Deconnexion", icon: <LogoutIcon /> },
       ],
     },
   ];
@@ -485,8 +496,13 @@ export default function SidebarLayout({
       return;
     }
 
+    if (item.label.includes("academique") || item.label.includes("emploi")) {
+      navigate("/gestion-academique");
+      return;
+    }
+
     if (item.label.includes("ances")) {
-      navigate("/seances");
+      navigate(isAdmin ? "/gestion-academique" : "/seances");
       return;
     }
 
@@ -549,7 +565,7 @@ export default function SidebarLayout({
                   {sec.items.map((item) => (
                     <button
                       key={item.label}
-                      className={`sb-item${item.active ? " active" : ""}`}
+                      className={`sb-item${item.path ? isActivePath(item.path) ? " active" : "" : item.active ? " active" : ""}`}
                       onClick={() => handleNavItemClick(item)}
                     >
                       {item.icon}
