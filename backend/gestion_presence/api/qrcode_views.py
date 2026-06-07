@@ -548,9 +548,10 @@ def export_qr_session(request, seance_id):
         current_row += 1
 
     # Adjust column dimensions to content (ignoring header rows 1-6 to prevent stretching)
+    from openpyxl.utils import get_column_letter
     for col in ws.columns:
         max_len = 0
-        col_letter = col[0].column_letter
+        col_letter = get_column_letter(col[0].column)
         if col_letter == "A":
             continue
         for cell in col:
