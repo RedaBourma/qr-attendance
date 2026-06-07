@@ -12,6 +12,22 @@ interface Enseignant {
     role: string;
   };
   cours_count: number;
+  filieres?: Array<{ id: number; nom: string }>;
+  modules?: Array<{ id: number; nom: string; filiere_id: number; semestre: string }>;
+}
+
+interface AcademicFiliere {
+  id: number;
+  nom: string;
+  semesters: string[];
+}
+
+interface AcademicModule {
+  id: number;
+  nom: string;
+  filiereId: number;
+  filiere: string;
+  semestre: string;
 }
 
 interface EnseignantsResponse {
@@ -267,9 +283,68 @@ const css = `
     border-radius: 16px;
     box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
     width: 100%;
-    max-width: 500px;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
     padding: 24px;
     border: 1px solid var(--gray-200);
+  }
+
+  .ens-form-inputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .ens-academic-sections {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 8px;
+    border-top: 1px solid var(--gray-100);
+    padding-top: 16px;
+  }
+  .ens-checkbox-group {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 12px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .ens-checkbox-group-title {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--gray-400);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .ens-checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ens-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--gray-600);
+    cursor: pointer;
+  }
+  .ens-checkbox-item input {
+    cursor: pointer;
+  }
+  .ens-filiere-badge {
+    display: inline-flex;
+    border-radius: 999px;
+    background: rgba(3,125,167,0.06);
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    margin-right: 4px;
+    margin-bottom: 4px;
+    border: 1px solid rgba(3,125,167,0.15);
   }
   .ens-modal-title {
     font-family: 'Outfit', sans-serif;
@@ -321,36 +396,61 @@ const css = `
 
 export default function EnseignantsPage() {
   const [enseignants, setEnseignants] = useState<Enseignant[]>([]);
+  const [allFilieres, setAllFilieres] = useState<AcademicFiliere[]>([]);
+  const [allModules, setAllModules] = useState<AcademicModule[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // Creation States
   const [form, setForm] = useState({
     nom: "",
     prenom: "",
     email: "",
     password: "",
   });
+  const [selectedFilieres, setSelectedFilieres] = useState<number[]>([]);
+  const [selectedModules, setSelectedModules] = useState<number[]>([]);
+
+  // Filtering for creation
+  const filteredModules = useMemo(() => {
+    if (selectedFilieres.length === 0) return [];
+    return allModules.filter((m) => selectedFilieres.includes(m.filiereId));
+  }, [allModules, selectedFilieres]);
 
   useEffect(() => {
-    const loadEnseignants = async () => {
+    const loadData = async () => {
       setLoading(true);
       setError("");
+      const token = localStorage.getItem("access");
 
       try {
-        const res = await fetch(`${API_BASE}/enseignants/`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access")}`,
-          },
-        });
-        const data = await res.json();
+        const [resEns, resAcad] = await Promise.all([
+          fetch(`${API_BASE}/enseignants/`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+          fetch(`${API_BASE}/seances/academic/`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+        ]);
 
-        if (!res.ok) {
-          setError(data.message || "Impossible de charger les enseignants.");
+        const dataEns = await resEns.json();
+        if (!resEns.ok) {
+          setError(dataEns.message || "Impossible de charger les enseignants.");
           return;
         }
+        setEnseignants((dataEns as EnseignantsResponse).enseignants);
 
-        setEnseignants((data as EnseignantsResponse).enseignants);
+        if (resAcad.ok) {
+          const dataAcad = await resAcad.json();
+          setAllFilieres(dataAcad.filieres || []);
+          setAllModules(dataAcad.modules || []);
+        }
       } catch {
         setError("Erreur de connexion avec le serveur.");
       } finally {
@@ -358,11 +458,35 @@ export default function EnseignantsPage() {
       }
     };
 
-    loadEnseignants();
+    loadData();
   }, []);
 
   const updateForm = (field: keyof typeof form, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleFiliereToggle = (filiereId: number) => {
+    setSelectedFilieres((prev) => {
+      const isChecked = prev.includes(filiereId);
+      if (isChecked) {
+        const newFilieres = prev.filter((id) => id !== filiereId);
+        setSelectedModules((prevModules) =>
+          prevModules.filter((modId) => {
+            const modObj = allModules.find((m) => m.id === modId);
+            return modObj ? modObj.filiereId !== filiereId : true;
+          })
+        );
+        return newFilieres;
+      } else {
+        return [...prev, filiereId];
+      }
+    });
+  };
+
+  const handleModuleToggle = (moduleId: number) => {
+    setSelectedModules((prev) =>
+      prev.includes(moduleId) ? prev.filter((id) => id !== moduleId) : [...prev, moduleId]
+    );
   };
 
   const handleCreateEnseignant = async (event: React.FormEvent) => {
@@ -377,7 +501,11 @@ export default function EnseignantsPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("access")}`,
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          filiere_ids: selectedFilieres,
+          module_ids: selectedModules,
+        }),
       });
       const data = await res.json();
 
@@ -388,6 +516,8 @@ export default function EnseignantsPage() {
 
       setEnseignants((current) => [...current, data as Enseignant]);
       setForm({ nom: "", prenom: "", email: "", password: "" });
+      setSelectedFilieres([]);
+      setSelectedModules([]);
     } catch {
       setError("Erreur de connexion avec le serveur.");
     } finally {
@@ -395,6 +525,7 @@ export default function EnseignantsPage() {
     }
   };
 
+  // Editing States
   const [editingEnseignant, setEditingEnseignant] = useState<Enseignant | null>(null);
   const [editForm, setEditForm] = useState({
     nom: "",
@@ -402,7 +533,15 @@ export default function EnseignantsPage() {
     email: "",
     password: "",
   });
+  const [editSelectedFilieres, setEditSelectedFilieres] = useState<number[]>([]);
+  const [editSelectedModules, setEditSelectedModules] = useState<number[]>([]);
   const [deletingEnseignantId, setDeletingEnseignantId] = useState<number | null>(null);
+
+  // Filtering for editing
+  const editFilteredModules = useMemo(() => {
+    if (editSelectedFilieres.length === 0) return [];
+    return allModules.filter((m) => editSelectedFilieres.includes(m.filiereId));
+  }, [allModules, editSelectedFilieres]);
 
   const handleStartEdit = (enseignant: Enseignant) => {
     setEditingEnseignant(enseignant);
@@ -412,6 +551,32 @@ export default function EnseignantsPage() {
       email: enseignant.user.email,
       password: "",
     });
+    setEditSelectedFilieres(enseignant.filieres ? enseignant.filieres.map((f) => f.id) : []);
+    setEditSelectedModules(enseignant.modules ? enseignant.modules.map((m) => m.id) : []);
+  };
+
+  const handleEditFiliereToggle = (filiereId: number) => {
+    setEditSelectedFilieres((prev) => {
+      const isChecked = prev.includes(filiereId);
+      if (isChecked) {
+        const newFilieres = prev.filter((id) => id !== filiereId);
+        setEditSelectedModules((prevModules) =>
+          prevModules.filter((modId) => {
+            const modObj = allModules.find((m) => m.id === modId);
+            return modObj ? modObj.filiereId !== filiereId : true;
+          })
+        );
+        return newFilieres;
+      } else {
+        return [...prev, filiereId];
+      }
+    });
+  };
+
+  const handleEditModuleToggle = (moduleId: number) => {
+    setEditSelectedModules((prev) =>
+      prev.includes(moduleId) ? prev.filter((id) => id !== moduleId) : [...prev, moduleId]
+    );
   };
 
   const handleUpdateEnseignant = async (e: React.FormEvent) => {
@@ -426,7 +591,11 @@ export default function EnseignantsPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("access")}`,
         },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({
+          ...editForm,
+          filiere_ids: editSelectedFilieres,
+          module_ids: editSelectedModules,
+        }),
       });
 
       const data = await res.json();
@@ -511,31 +680,83 @@ export default function EnseignantsPage() {
 
           <div className="ens-form-card">
             <div className="ens-form-title">Ajouter un enseignant</div>
-            <form className="ens-form" onSubmit={handleCreateEnseignant}>
-              <div className="ens-field">
-                <label>Nom</label>
-                <input value={form.nom} onChange={(event) => updateForm("nom", event.target.value)} required />
+            <form onSubmit={handleCreateEnseignant} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div className="ens-form-inputs">
+                <div className="ens-field">
+                  <label>Nom</label>
+                  <input value={form.nom} onChange={(event) => updateForm("nom", event.target.value)} required />
+                </div>
+                <div className="ens-field">
+                  <label>Prenom</label>
+                  <input value={form.prenom} onChange={(event) => updateForm("prenom", event.target.value)} required />
+                </div>
+                <div className="ens-field">
+                  <label>Email</label>
+                  <input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} />
+                  <span style={{ fontSize: "9px", color: "var(--gray-400)", marginTop: "2px", lineHeight: "1.2" }}>
+                    Optionnel (auto: prenom.nom@umi.ac.ma)
+                  </span>
+                </div>
+                <div className="ens-field">
+                  <label>Mot de passe</label>
+                  <input type="password" value={form.password} onChange={(event) => updateForm("password", event.target.value)} />
+                  <span style={{ fontSize: "9px", color: "var(--gray-400)", marginTop: "2px", lineHeight: "1.2" }}>
+                    Optionnel (auto: nom@prenom)
+                  </span>
+                </div>
               </div>
-              <div className="ens-field">
-                <label>Prenom</label>
-                <input value={form.prenom} onChange={(event) => updateForm("prenom", event.target.value)} required />
+
+              <div className="ens-academic-sections">
+                <div className="ens-checkbox-group">
+                  <div className="ens-checkbox-group-title">Filières</div>
+                  <div className="ens-checkbox-list">
+                    {allFilieres.map((filiere) => (
+                      <label key={filiere.id} className="ens-checkbox-item">
+                        <input
+                          type="checkbox"
+                          checked={selectedFilieres.includes(filiere.id)}
+                          onChange={() => handleFiliereToggle(filiere.id)}
+                        />
+                        {filiere.nom}
+                      </label>
+                    ))}
+                    {allFilieres.length === 0 && (
+                      <span style={{ fontSize: "12px", color: "var(--gray-400)" }}>Aucune filière disponible</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="ens-checkbox-group">
+                  <div className="ens-checkbox-group-title">Modules</div>
+                  <div className="ens-checkbox-list">
+                    {filteredModules.map((module) => (
+                      <label key={module.id} className="ens-checkbox-item">
+                        <input
+                          type="checkbox"
+                          checked={selectedModules.includes(module.id)}
+                          onChange={() => handleModuleToggle(module.id)}
+                        />
+                        <span>
+                          {module.nom}{" "}
+                          <span style={{ fontSize: "11px", color: "var(--gray-400)", fontWeight: "normal" }}>
+                            ({module.filiere} - {module.semestre})
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                    {filteredModules.length === 0 && (
+                      <span style={{ fontSize: "12px", color: "var(--gray-400)" }}>
+                        {selectedFilieres.length === 0
+                          ? "Sélectionnez une filière pour voir ses modules"
+                          : "Aucun module trouvé pour les filières sélectionnées"}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="ens-field">
-                <label>Email</label>
-                <input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} />
-                <span style={{ fontSize: "9px", color: "var(--gray-400)", marginTop: "2px", lineHeight: "1.2" }}>
-                  Optionnel (auto: prenom.nom@umi.ac.ma)
-                </span>
-              </div>
-              <div className="ens-field">
-                <label>Mot de passe</label>
-                <input type="password" value={form.password} onChange={(event) => updateForm("password", event.target.value)} />
-                <span style={{ fontSize: "9px", color: "var(--gray-400)", marginTop: "2px", lineHeight: "1.2" }}>
-                  Optionnel (auto: nom@prenom)
-                </span>
-              </div>
-              <div className="ens-form-actions">
-                <button className="ens-btn" type="submit" disabled={creating} style={{ marginBottom: "14px" }}>
+
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button className="ens-btn" type="submit" disabled={creating} style={{ width: "auto", minWidth: "150px" }}>
                   {creating ? "Ajout..." : "Ajouter"}
                 </button>
               </div>
@@ -552,6 +773,7 @@ export default function EnseignantsPage() {
                 <thead>
                   <tr>
                     <th>Enseignant</th>
+                    <th>Filières</th>
                     <th>Email</th>
                     <th>Cours</th>
                     <th>Role</th>
@@ -563,6 +785,21 @@ export default function EnseignantsPage() {
                     <tr key={enseignant.id}>
                       <td>
                         <div className="ens-name">{enseignant.user.prenom} {enseignant.user.nom}</div>
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", maxWidth: "250px" }}>
+                          {enseignant.filieres && enseignant.filieres.length > 0 ? (
+                            enseignant.filieres.map((f) => (
+                              <span key={f.id} className="ens-filiere-badge">
+                                {f.nom}
+                              </span>
+                            ))
+                          ) : (
+                            <span style={{ fontSize: "12px", color: "var(--gray-400)", fontStyle: "italic" }}>
+                              Aucune filière
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td>{enseignant.user.email}</td>
                       <td>{enseignant.cours_count}</td>
@@ -632,6 +869,57 @@ export default function EnseignantsPage() {
                       Laisser vide pour conserver le mot de passe actuel.
                     </span>
                   </div>
+
+                  {/* Edit Checkbox Lists for academic details */}
+                  <div className="ens-academic-sections">
+                    <div className="ens-checkbox-group">
+                      <div className="ens-checkbox-group-title">Filières</div>
+                      <div className="ens-checkbox-list">
+                        {allFilieres.map((filiere) => (
+                          <label key={filiere.id} className="ens-checkbox-item">
+                            <input
+                              type="checkbox"
+                              checked={editSelectedFilieres.includes(filiere.id)}
+                              onChange={() => handleEditFiliereToggle(filiere.id)}
+                            />
+                            {filiere.nom}
+                          </label>
+                        ))}
+                        {allFilieres.length === 0 && (
+                          <span style={{ fontSize: "12px", color: "var(--gray-400)" }}>Aucune filière disponible</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="ens-checkbox-group">
+                      <div className="ens-checkbox-group-title">Modules</div>
+                      <div className="ens-checkbox-list">
+                        {editFilteredModules.map((module) => (
+                          <label key={module.id} className="ens-checkbox-item">
+                            <input
+                              type="checkbox"
+                              checked={editSelectedModules.includes(module.id)}
+                              onChange={() => handleEditModuleToggle(module.id)}
+                            />
+                            <span>
+                              {module.nom}{" "}
+                              <span style={{ fontSize: "11px", color: "var(--gray-400)", fontWeight: "normal" }}>
+                                ({module.filiere} - {module.semestre})
+                              </span>
+                            </span>
+                          </label>
+                        ))}
+                        {editFilteredModules.length === 0 && (
+                          <span style={{ fontSize: "12px", color: "var(--gray-400)" }}>
+                            {editSelectedFilieres.length === 0
+                              ? "Sélectionnez une filière pour voir ses modules"
+                              : "Aucun module trouvé pour les filières sélectionnées"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="ens-modal-actions">
                     <button type="button" className="ens-btn-secondary" onClick={() => setEditingEnseignant(null)}>
                       Annuler

@@ -8,6 +8,16 @@ class Enseignant(models.Model):
         on_delete=models.CASCADE,
         related_name="enseignant_profile",
     )
+    filieres = models.ManyToManyField(
+        "gestion_presence.Filiere",
+        related_name="enseignants",
+        blank=True,
+    )
+    modules = models.ManyToManyField(
+        "gestion_presence.Module",
+        related_name="enseignants",
+        blank=True,
+    )
 
     class Meta:
         db_table = "enseignants"
