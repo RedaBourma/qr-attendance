@@ -87,3 +87,33 @@ def me_view(request):
 
     return Response({"user": serialize_user(user, request)})
 
+
+@api_view(["POST"])
+def change_password_view(request):
+    user = request.user
+    current_password = request.data.get("current_password")
+    new_password = request.data.get("new_password")
+
+    if not current_password or not new_password:
+        return Response(
+            {"message": "Le mot de passe actuel et le nouveau mot de passe sont requis."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not user.check_password(current_password):
+        return Response(
+            {"message": "Le mot de passe actuel est incorrect."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if len(new_password) < 6:
+        return Response(
+            {"message": "Le nouveau mot de passe doit contenir au moins 6 caractères."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user.set_password(new_password)
+    user.save()
+
+    return Response({"message": "Mot de passe modifié avec succès."}, status=status.HTTP_200_OK)
+
