@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import SidebarLayout from "../components/Sidebar";
+import { API_BASE } from "../config";
 
 const css = `
   .profile-shell {
@@ -158,7 +159,7 @@ export default function ProfileSettingsPage() {
     formData.append("profile_picture", file);
     setMessage("Upload en cours...");
 
-    const res = await fetch("http://localhost:8000/api/me/", {
+    const res = await fetch(`${API_BASE}/me/`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -181,7 +182,7 @@ export default function ProfileSettingsPage() {
     const token = localStorage.getItem("access");
     setMessage("Suppression en cours...");
 
-    const res = await fetch("http://localhost:8000/api/me/", {
+    const res = await fetch(`${API_BASE}/me/`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${token}`,

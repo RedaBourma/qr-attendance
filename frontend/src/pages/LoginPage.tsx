@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE } from "../config";
 import { useNavigate } from "react-router-dom";
 import uniLogo from "../assets/uni_logo.png";
 
@@ -352,7 +353,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:8000/api/login/", {
+      const res = await fetch(`${API_BASE}/login/`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({email, password}),
