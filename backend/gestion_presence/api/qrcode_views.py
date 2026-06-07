@@ -548,7 +548,7 @@ def submit_qr_scan(request, token):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    etudiant = Etudiant.objects.select_related("user", "filiere").filter(code_massar=code_massar).first()
+    etudiant = Etudiant.objects.select_related("user", "filiere").filter(code_massar__iexact=code_massar).first()
 
     if not etudiant:
         return Response({"message": "Etudiant introuvable."}, status=status.HTTP_404_NOT_FOUND)
