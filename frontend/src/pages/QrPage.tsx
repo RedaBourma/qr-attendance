@@ -635,7 +635,7 @@ async function downloadExport(seanceId: string, type: "all" | "present" | "absen
   const href = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = href;
-  link.download = `presence_seance_${seanceId}_${type}.csv`;
+  link.download = `presence_seance_${seanceId}_${type}.xlsx`;
   document.body.appendChild(link);
   link.click();
   link.remove();
