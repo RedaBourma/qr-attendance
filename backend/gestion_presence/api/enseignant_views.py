@@ -37,16 +37,22 @@ def create_enseignant(request):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    nom = request.data.get("nom")
-    prenom = request.data.get("prenom")
-    email = request.data.get("email")
-    password = request.data.get("password")
+    nom = (request.data.get("nom") or "").strip()
+    prenom = (request.data.get("prenom") or "").strip()
+    email = (request.data.get("email") or "").strip()
+    password = request.data.get("password") or ""
 
-    if not all([nom, prenom, email, password]):
+    if not all([nom, prenom]):
         return Response(
-            {"message": "nom, prenom, email et password sont requis."},
+            {"message": "nom et prenom sont requis."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+    if not email:
+        email = f"{prenom.lower()}.{nom.lower()}@umi.ac.ma"
+
+    if not password:
+        password = f"{nom.lower()}@{prenom.lower()}"
 
     try:
         with transaction.atomic():
@@ -68,3 +74,73 @@ def create_enseignant(request):
         serialize_enseignant(enseignant, request),
         status=status.HTTP_201_CREATED,
     )
+
+
+@api_view(["PATCH", "POST"])
+def update_enseignant(request, enseignant_id):
+    if request.user.role != User.Role.ADMIN:
+        return Response(
+            {"message": "Acces reserve a l'admin."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    enseignant = Enseignant.objects.filter(id=enseignant_id).select_related("user").first()
+    if not enseignant:
+        return Response({"message": "Enseignant introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    nom = (request.data.get("nom") or "").strip()
+    prenom = (request.data.get("prenom") or "").strip()
+    email = (request.data.get("email") or "").strip()
+    password = request.data.get("password") or ""
+
+    if not all([nom, prenom]):
+        return Response(
+            {"message": "nom et prenom sont requis."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        with transaction.atomic():
+            user = enseignant.user
+            user.nom = nom
+            user.prenom = prenom
+            if email:
+                user.email = email
+            if password:
+                user.set_password(password)
+            user.save()
+    except IntegrityError:
+        return Response(
+            {"message": "Un utilisateur avec cet email existe deja."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response(
+        serialize_enseignant(enseignant, request),
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["DELETE", "POST"])
+def delete_enseignant(request, enseignant_id):
+    if request.user.role != User.Role.ADMIN:
+        return Response(
+            {"message": "Acces reserve a l'admin."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    enseignant = Enseignant.objects.filter(id=enseignant_id).select_related("user").first()
+    if not enseignant:
+        return Response({"message": "Enseignant introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        with transaction.atomic():
+            user = enseignant.user
+            user.delete()
+    except Exception as e:
+        return Response(
+            {"message": f"Erreur lors de la suppression : {str(e)}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response({"message": "Enseignant supprime avec succes."}, status=status.HTTP_200_OK)

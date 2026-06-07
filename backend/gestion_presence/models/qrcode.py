@@ -8,6 +8,8 @@ class QRCode(models.Model):
     url_cible = models.URLField(max_length=500)
     token = models.CharField(max_length=255, unique=True)
     expiration = models.DateTimeField()
+    latitude = models.FloatField(blank=True, null=True)
+    longitude = models.FloatField(blank=True, null=True)
     seance = models.OneToOneField(
         Seance,
         on_delete=models.CASCADE,

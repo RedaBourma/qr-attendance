@@ -3,7 +3,9 @@ import { BrowserRouter, Navigate, Routes, Route} from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/Dashboard'
+import StatistiquesPage from './pages/StatistiquesPage'
 import MesSeancesPage from './pages/MesSeances'
+import GestionEmploiPage from './pages/GestionEmploiPage'
 import EtudiantsPage from './pages/EtudiantsPage'
 import EnseignantsPage from './pages/EnseignantsPage'
 import ProfileSettingsPage from './pages/ProfileSettingsPage'
@@ -18,8 +20,10 @@ function App() {
         <Route path='/login' element={<LoginPage/>}/>
         <Route path='/scan/:token' element={<ScanPage/>}/>
         <Route element={<ProtectedRoute/>}>
-          <Route path='/dashboard' element={<DashboardPage/>}/>
-          <Route path='/seances' element={<MesSeancesPage/>}/>
+          <Route path='/dashboard' element={<ProtectedRoute allowedRoles={["enseignant"]}><DashboardPage/></ProtectedRoute>}/>
+          <Route path='/statistiques' element={<ProtectedRoute allowedRoles={["admin"]}><StatistiquesPage/></ProtectedRoute>}/>
+          <Route path='/seances' element={<ProtectedRoute allowedRoles={["enseignant"]}><MesSeancesPage/></ProtectedRoute>}/>
+          <Route path='/gestion-academique' element={<ProtectedRoute allowedRoles={["admin"]}><GestionEmploiPage/></ProtectedRoute>}/>
           <Route path='/etudiants' element={<EtudiantsPage/>}/>
           <Route path='/enseignants' element={<EnseignantsPage/>}/>
           <Route path='/qr' element={<QRSessionDashboard/>}/>

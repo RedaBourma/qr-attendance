@@ -8,6 +8,7 @@ from .cours import Cours
 from .seance import Seance
 from .presence import Presence
 from .qrcode import QRCode
+from .temp_seance import TemporaryPresence, TemporarySeance
 
 __all__ = [
     "User",
@@ -20,4 +21,6 @@ __all__ = [
     "Seance",
     "Presence",
     "QRCode",
+    "TemporaryPresence",
+    "TemporarySeance",
 ]

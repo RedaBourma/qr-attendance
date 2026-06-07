@@ -32,6 +32,7 @@ class UserAdmin(DjangoUserAdmin):
 
 @admin.register(Filiere)
 class FiliereAdmin(admin.ModelAdmin):
+    list_display = ("nom", "semesters")
     search_fields = ("nom",)
 
 
@@ -70,10 +71,10 @@ class CoursAdmin(admin.ModelAdmin):
 
 @admin.register(Etudiant)
 class EtudiantAdmin(admin.ModelAdmin):
-    list_display = ("student_name", "code_massar", "filiere", "semester", "niveau")
-    list_filter = ("filiere", "semester", "niveau")
+    list_display = ("student_name", "code_massar", "filiere")
+    list_filter = ("filiere",)
     search_fields = ("user__nom", "user__prenom", "user__email", "code_massar", "filiere__nom")
-    fields = ("user", "code_massar", "filiere", "semester", "niveau")
+    fields = ("user", "code_massar", "filiere")
     list_select_related = ("user", "filiere")
 
     @admin.display(description="Etudiant", ordering="user__nom")
@@ -86,3 +87,33 @@ admin.site.register(Presence)
 # admin.site.register(Groupe)
 admin.site.register(Seance)
 admin.site.register(QRCode)
+
+
+@admin.register(TemporarySeance)
+class TemporarySeanceAdmin(admin.ModelAdmin):
+    list_display = ("module", "enseignant", "date_seance", "heure_debut", "heure_fin", "qr_expiration", "salle", "est_ouverte")
+    list_filter = ("enseignant", "module__filiere", "module__semestre", "est_ouverte")
+    search_fields = (
+        "module__nom",
+        "module__filiere__nom",
+        "enseignant__user__nom",
+        "enseignant__user__prenom",
+        "salle",
+        "token_qr",
+    )
+    ordering = ("-date_seance", "-heure_debut")
+    list_select_related = ("module", "module__filiere", "enseignant", "enseignant__user")
+
+
+@admin.register(TemporaryPresence)
+class TemporaryPresenceAdmin(admin.ModelAdmin):
+    list_display = ("etudiant", "seance", "statut", "heure_validation")
+    list_filter = ("statut", "seance__module__filiere", "seance__module__semestre")
+    search_fields = (
+        "etudiant__user__nom",
+        "etudiant__user__prenom",
+        "etudiant__code_massar",
+        "seance__module__nom",
+    )
+    ordering = ("-heure_validation",)
+    list_select_related = ("etudiant", "etudiant__user", "seance", "seance__module")

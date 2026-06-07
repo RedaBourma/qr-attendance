@@ -14,11 +14,21 @@ interface TeachingSession {
   filiere: string;
   room: string;
   temporary?: boolean;
+  heure_debut_iso?: string;
+  heure_fin_iso?: string;
 }
 
 interface FiliereOption {
   id: number;
   nom: string;
+}
+
+interface ModuleOption {
+  id: number;
+  nom: string;
+  filiereId: number;
+  niveau: string;
+  semestre: string;
 }
 
 interface SeancesResponse {
@@ -89,9 +99,9 @@ const css = `
   }
 
   .sc-grid {
-    min-width: 920px;
+    min-width: 780px;
     display: grid;
-    grid-template-columns: 76px repeat(6, minmax(130px, 1fr));
+    grid-template-columns: 56px repeat(6, minmax(100px, 1fr));
   }
 
   .sc-corner,
@@ -110,47 +120,47 @@ const css = `
   }
 
   .sc-day-head {
-    min-height: 58px;
-    padding: 12px;
+    min-height: 44px;
+    padding: 8px;
     border-right: 1px solid var(--gray-200);
   }
 
   .sc-day-name {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
     color: var(--gray-800);
     text-transform: uppercase;
   }
 
   .sc-day-date {
-    margin-top: 3px;
-    font-size: 12px;
+    margin-top: 2px;
+    font-size: 10px;
     color: var(--gray-400);
   }
 
   .sc-time-col {
     position: relative;
-    height: 720px;
+    height: 520px;
     border-right: 1px solid var(--gray-200);
     background: var(--gray-50);
   }
 
   .sc-time-label {
     position: absolute;
-    right: 10px;
+    right: 6px;
     transform: translateY(-50%);
-    font-size: 11px;
+    font-size: 10px;
     color: var(--gray-400);
   }
 
   .sc-day-col {
     position: relative;
-    height: 720px;
+    height: 520px;
     border-right: 1px solid var(--gray-200);
     background:
-      linear-gradient(to bottom, transparent 0, transparent 59px, var(--gray-100) 60px),
+      linear-gradient(to bottom, transparent 0, transparent 42px, var(--gray-100) 43px),
       var(--white);
-    background-size: 100% 60px;
+    background-size: 100% 43px;
   }
 
   .sc-lunch {
@@ -170,12 +180,12 @@ const css = `
 
   .sc-session {
     position: absolute;
-    left: 8px;
-    right: 8px;
+    left: 4px;
+    right: 4px;
     border: 1px solid var(--gray-200);
-    border-left: 4px solid var(--gray-400);
-    border-radius: 10px;
-    padding: 10px;
+    border-left: 3px solid var(--gray-400);
+    border-radius: 7px;
+    padding: 5px 6px;
     background: var(--gray-50);
     color: var(--gray-600);
     text-align: left;
@@ -205,17 +215,17 @@ const css = `
   }
 
   .sc-session-title {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 800;
     color: var(--gray-800);
-    line-height: 1.2;
+    line-height: 1.15;
   }
 
   .sc-session-meta,
   .sc-session-time {
-    margin-top: 5px;
-    font-size: 11px;
-    line-height: 1.25;
+    margin-top: 2px;
+    font-size: 9px;
+    line-height: 1.2;
   }
 
   .sc-session-time {
@@ -226,10 +236,10 @@ const css = `
   .sc-status {
     display: inline-flex;
     align-items: center;
-    margin-top: 8px;
-    padding: 3px 8px;
+    margin-top: 4px;
+    padding: 2px 6px;
     border-radius: 999px;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 800;
     background: var(--gray-100);
     color: var(--gray-400);
@@ -388,7 +398,8 @@ const WEEK_DAYS: Array<{ value: WeekDay; label: string }> = [
 
 const START_MINUTES = toMinutes("08:30");
 const END_MINUTES = toMinutes("18:30");
-const PIXELS_PER_MINUTE = 720 / (END_MINUTES - START_MINUTES);
+const SCHEDULE_HEIGHT = 520;
+const PIXELS_PER_MINUTE = SCHEDULE_HEIGHT / (END_MINUTES - START_MINUTES);
 
 function toMinutes(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
@@ -422,8 +433,7 @@ function isSessionActive(session: TeachingSession, now: Date) {
 
 function isSessionSelectable(session: TeachingSession, now: Date) {
   if (session.temporary) {
-    const today = (now.getDay() || 7) as WeekDay;
-    return session.day === today;
+    return isSessionActive(session, now);
   }
 
   return isSessionActive(session, now);
@@ -435,7 +445,7 @@ function sessionStyle(session: TeachingSession) {
 
   return {
     top: `${(start - START_MINUTES) * PIXELS_PER_MINUTE}px`,
-    height: `${(end - start) * PIXELS_PER_MINUTE - 10}px`,
+    height: `${Math.max((end - start) * PIXELS_PER_MINUTE - 6, 36)}px`,
   };
 }
 
@@ -451,23 +461,35 @@ function formatNow(date: Date) {
   });
 }
 
-function toTimeInput(date: Date) {
-  return date.toTimeString().slice(0, 5);
+function processSingleSession(session: any): TeachingSession {
+  if (session.temporary && session.heure_debut_iso && session.heure_fin_iso) {
+    const dStart = new Date(session.heure_debut_iso);
+    const dEnd = new Date(session.heure_fin_iso);
+    
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const startStr = `${pad(dStart.getHours())}:${pad(dStart.getMinutes())}`;
+    const endStr = `${pad(dEnd.getHours())}:${pad(dEnd.getMinutes())}`;
+    const dayVal = (dStart.getDay() || 7) as WeekDay;
+
+    return {
+      ...session,
+      day: dayVal,
+      start: startStr,
+      end: endStr,
+    };
+  }
+  return session;
 }
 
-function addMinutesToTime(time: string, minutesToAdd: number) {
-  const total = toMinutes(time) + minutesToAdd;
-  const hours = Math.floor(total / 60).toString().padStart(2, "0");
-  const minutes = (total % 60).toString().padStart(2, "0");
-  return `${hours}:${minutes}`;
-}
-
-function getCurrentWeekDay(date: Date): WeekDay {
-  const day = date.getDay() || 7;
-  return Math.min(day, 6) as WeekDay;
+function processSessions(rawSessions: any[]): TeachingSession[] {
+  return rawSessions.map(processSingleSession);
 }
 
 export default function MesSeancesPage() {
+  return <ProfessorMesSeancesPage />;
+}
+
+function ProfessorMesSeancesPage() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<TeachingSession[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -478,10 +500,9 @@ export default function MesSeancesPage() {
   const [creatingTemp, setCreatingTemp] = useState(false);
   const [ownerName, setOwnerName] = useState("");
   const [filieres, setFilieres] = useState<FiliereOption[]>([]);
-  const [semestersByFiliere, setSemestersByFiliere] = useState<Record<string, string[]>>({});
-  const [tempModule, setTempModule] = useState("");
+  const [modules, setModules] = useState<ModuleOption[]>([]);
+  const [tempModuleId, setTempModuleId] = useState("");
   const [tempFiliereId, setTempFiliereId] = useState("");
-  const [tempSemestre, setTempSemestre] = useState("");
   const [tempRoom, setTempRoom] = useState("");
   const [tempDuration, setTempDuration] = useState("120");
   const weekStart = useMemo(() => getWeekStart(now), [now]);
@@ -509,7 +530,7 @@ export default function MesSeancesPage() {
           return;
         }
 
-        setSessions(data.seances);
+        setSessions(processSessions(data.seances));
         setOwnerName(data.owner ? `${data.owner.prenom} ${data.owner.nom}` : "");
       } catch {
         setError("Erreur de connexion au serveur.");
@@ -533,10 +554,10 @@ export default function MesSeancesPage() {
 
         if (res.ok) {
           setFilieres(data.filieres || []);
-          setSemestersByFiliere(data.semestersByFiliere || {});
+          setModules(data.modules || []);
         }
       } catch {
-        // Filters are optional; temp form still works with manual semester input.
+        // Filters are optional; the form will stay disabled until they load.
       }
     };
 
@@ -549,19 +570,37 @@ export default function MesSeancesPage() {
     }
   }, [now, selectedSession]);
 
-  const availableSemesters = useMemo(() => {
+  useEffect(() => {
+    setSessions((current) => current.filter((session) => !session.temporary || isSessionActive(session, now)));
+  }, [now]);
+
+  const availableModules = useMemo(() => {
     if (!tempFiliereId) {
       return [];
     }
 
-    return semestersByFiliere[tempFiliereId] || [];
-  }, [tempFiliereId, semestersByFiliere]);
+    return modules.filter((module) => String(module.filiereId) === tempFiliereId);
+  }, [modules, tempFiliereId]);
+
+  const getCurrentLocation = (): Promise<GeolocationPosition> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("La géolocalisation n'est pas supportée par votre navigateur."));
+      } else {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        });
+      }
+    });
+  };
 
   const handleCreateTemporarySession = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!tempModule.trim() || !tempFiliereId || !tempSemestre.trim()) {
-      setError("Module, filiere et semestre sont obligatoires.");
+    if (!tempFiliereId || !tempModuleId) {
+      setError("Filiere et module sont obligatoires.");
       return;
     }
 
@@ -569,6 +608,19 @@ export default function MesSeancesPage() {
     setError("");
 
     try {
+      let lat: number | null = null;
+      let lng: number | null = null;
+
+      try {
+        const position = await getCurrentLocation();
+        lat = position.coords.latitude;
+        lng = position.coords.longitude;
+      } catch (err: any) {
+        setError("L'autorisation de géolocalisation est requise pour créer une séance temporaire.");
+        setCreatingTemp(false);
+        return;
+      }
+
       const res = await fetch(`${API_BASE}/seances/temporary/`, {
         method: "POST",
         headers: {
@@ -576,11 +628,12 @@ export default function MesSeancesPage() {
           Authorization: `Bearer ${localStorage.getItem("access")}`,
         },
         body: JSON.stringify({
-          module: tempModule.trim(),
+          module_id: Number(tempModuleId),
           filiere_id: Number(tempFiliereId),
-          semestre: tempSemestre.trim(),
           salle: tempRoom.trim(),
           validite_min: Number(tempDuration),
+          latitude: lat,
+          longitude: lng,
         }),
       });
       const data = await res.json();
@@ -590,12 +643,11 @@ export default function MesSeancesPage() {
         return;
       }
 
-      const created = data.seance as TeachingSession;
+      const created = processSingleSession(data.seance as TeachingSession);
       setSessions((current) => [...current, created]);
       setSelectedId(created.id);
-      setTempModule("");
+      setTempModuleId("");
       setTempFiliereId("");
-      setTempSemestre("");
       setTempRoom("");
       setTempDuration("120");
     } catch {
@@ -614,6 +666,19 @@ export default function MesSeancesPage() {
     setError("");
 
     try {
+      let lat: number | null = null;
+      let lng: number | null = null;
+
+      try {
+        const position = await getCurrentLocation();
+        lat = position.coords.latitude;
+        lng = position.coords.longitude;
+      } catch (err: any) {
+        setError("L'autorisation de géolocalisation est requise pour démarrer la séance.");
+        setGenerating(false);
+        return;
+      }
+
       const res = await fetch(`${API_BASE}/seances/generate-qr/`, {
         method: "POST",
         headers: {
@@ -622,7 +687,9 @@ export default function MesSeancesPage() {
         },
         body: JSON.stringify({
           cours_id: selectedSession.id,
-          validite_min: Math.max(1, toMinutes(selectedSession.end) - toMinutes(selectedSession.start)),
+          validite_min: 10,
+          latitude: lat,
+          longitude: lng,
         }),
       });
       const data = await res.json();
@@ -701,7 +768,9 @@ export default function MesSeancesPage() {
                       >
                         <div className="sc-session-title">{session.module}</div>
                         <div className="sc-session-time">{session.start} - {session.end}</div>
-                        <div className="sc-session-meta">{session.filiere} | Salle {session.room}</div>
+                        <div className="sc-session-meta">
+                          {session.filiere} | {session.room ? (/^salle\b/i.test(session.room.trim()) ? session.room : `Salle ${session.room}`) : ""}
+                        </div>
                         <span className="sc-status">
                           {active ? (session.temporary ? "Temporaire active" : "Disponible maintenant") : "Planifie"}
                         </span>
@@ -718,7 +787,7 @@ export default function MesSeancesPage() {
               <h2>{selectedSession ? selectedSession.module : "Aucune seance selectionnee"}</h2>
               <p>
                 {selectedSession
-                  ? `${selectedSession.filiere} | ${selectedSession.start} - ${selectedSession.end} | Salle ${selectedSession.room}${selectedSession.temporary ? " | Seance temporaire" : ""}`
+                  ? `${selectedSession.filiere} | ${selectedSession.start} - ${selectedSession.end} | ${selectedSession.room ? (/^salle\b/i.test(selectedSession.room.trim()) ? selectedSession.room : `Salle ${selectedSession.room}`) : ""}${selectedSession.temporary ? " | Seance temporaire" : ""}`
                   : "Clique sur une seance pour la selectionner."}
               </p>
             </div>
@@ -739,22 +808,12 @@ export default function MesSeancesPage() {
 
             <form className="sc-temp-form" onSubmit={handleCreateTemporarySession}>
               <div className="sc-field">
-                <label>Module</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Programmation Web"
-                  value={tempModule}
-                  onChange={(event) => setTempModule(event.target.value)}
-                />
-              </div>
-
-              <div className="sc-field">
                 <label>Filiere</label>
                 <select
                   value={tempFiliereId}
                   onChange={(event) => {
                     setTempFiliereId(event.target.value);
-                    setTempSemestre("");
+                    setTempModuleId("");
                   }}
                   required
                 >
@@ -768,29 +827,26 @@ export default function MesSeancesPage() {
               </div>
 
               <div className="sc-field">
-                <label>Semestre</label>
-                {availableSemesters.length > 0 ? (
-                  <select
-                    value={tempSemestre}
-                    onChange={(event) => setTempSemestre(event.target.value)}
-                    required
-                  >
-                    <option value="">Choisir un semestre</option>
-                    {availableSemesters.map((semestre) => (
-                      <option key={semestre} value={semestre}>
-                        {semestre}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    placeholder="Ex: S4"
-                    value={tempSemestre}
-                    onChange={(event) => setTempSemestre(event.target.value)}
-                    required
-                  />
-                )}
+                <label>Module</label>
+                <select
+                  value={tempModuleId}
+                  onChange={(event) => setTempModuleId(event.target.value)}
+                  disabled={!tempFiliereId || availableModules.length === 0}
+                  required
+                >
+                  <option value="">
+                    {tempFiliereId
+                      ? availableModules.length > 0
+                        ? "Choisir un module"
+                        : "Aucun module dans cette filiere"
+                      : "Choisir une filiere d'abord"}
+                  </option>
+                  {availableModules.map((module) => (
+                    <option key={module.id} value={module.id}>
+                      {module.nom} ({module.niveau} {module.semestre})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="sc-field">
