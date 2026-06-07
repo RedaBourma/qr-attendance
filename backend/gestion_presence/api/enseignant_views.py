@@ -14,6 +14,8 @@ def serialize_enseignant(enseignant, request=None):
         "id": enseignant.id,
         "user": serialize_user(user, request),
         "cours_count": enseignant.cours.count(),
+        "filieres": [{"id": f.id, "nom": f.nom} for f in enseignant.filieres.all()],
+        "modules": [{"id": m.id, "nom": m.nom, "filiere_id": m.filiere_id, "semestre": m.semestre} for m in enseignant.modules.all()],
     }
 
 
@@ -25,7 +27,7 @@ def list_enseignants(request):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    enseignants = Enseignant.objects.select_related("user").prefetch_related("cours").all()
+    enseignants = Enseignant.objects.select_related("user").prefetch_related("cours", "filieres", "modules").all()
     return Response({"enseignants": [serialize_enseignant(enseignant, request) for enseignant in enseignants]})
 
 
@@ -54,6 +56,9 @@ def create_enseignant(request):
     if not password:
         password = f"{nom.lower()}@{prenom.lower()}"
 
+    filiere_ids = request.data.get("filiere_ids") or []
+    module_ids = request.data.get("module_ids") or []
+
     try:
         with transaction.atomic():
             user = User.objects.create_user(
@@ -64,6 +69,10 @@ def create_enseignant(request):
                 role=User.Role.ENSEIGNANT,
             )
             enseignant = Enseignant.objects.create(user=user)
+            if filiere_ids:
+                enseignant.filieres.set(filiere_ids)
+            if module_ids:
+                enseignant.modules.set(module_ids)
     except IntegrityError:
         return Response(
             {"message": "Un utilisateur avec cet email existe deja."},
@@ -99,6 +108,9 @@ def update_enseignant(request, enseignant_id):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    filiere_ids = request.data.get("filiere_ids") or []
+    module_ids = request.data.get("module_ids") or []
+
     try:
         with transaction.atomic():
             user = enseignant.user
@@ -109,6 +121,8 @@ def update_enseignant(request, enseignant_id):
             if password:
                 user.set_password(password)
             user.save()
+            enseignant.filieres.set(filiere_ids)
+            enseignant.modules.set(module_ids)
     except IntegrityError:
         return Response(
             {"message": "Un utilisateur avec cet email existe deja."},
