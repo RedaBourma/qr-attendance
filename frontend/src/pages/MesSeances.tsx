@@ -12,6 +12,8 @@ interface TeachingSession {
   end: string;
   module: string;
   filiere: string;
+  filiereId?: number;
+  semestre?: string;
   room: string;
   temporary?: boolean;
   heure_debut_iso?: string;
@@ -499,6 +501,12 @@ function ProfessorMesSeancesPage() {
   const [generating, setGenerating] = useState(false);
   const [creatingTemp, setCreatingTemp] = useState(false);
   const [ownerName, setOwnerName] = useState("");
+  
+  // Timetable Filters
+  const [filterFiliereId, setFilterFiliereId] = useState("");
+  const [filterSemester, setFilterSemester] = useState("");
+  const [semestersByFiliere, setSemestersByFiliere] = useState<Record<string, string[]>>({});
+
   const [filieres, setFilieres] = useState<FiliereOption[]>([]);
   const [modules, setModules] = useState<ModuleOption[]>([]);
   const [tempModuleId, setTempModuleId] = useState("");
@@ -506,7 +514,37 @@ function ProfessorMesSeancesPage() {
   const [tempRoom, setTempRoom] = useState("");
   const [tempDuration, setTempDuration] = useState("120");
   const weekStart = useMemo(() => getWeekStart(now), [now]);
-  const selectedSession = sessions.find((session) => session.id === selectedId);
+
+  const filteredSessions = useMemo(() => {
+    return sessions.filter((session) => {
+      if (filterFiliereId && String(session.filiereId) !== filterFiliereId) {
+        return false;
+      }
+      if (filterSemester && session.semestre !== filterSemester) {
+        return false;
+      }
+      return true;
+    });
+  }, [sessions, filterFiliereId, filterSemester]);
+
+  const selectedSession = filteredSessions.find((session) => session.id === selectedId);
+
+  const availableSemestersForFilter = useMemo(() => {
+    if (filterFiliereId) {
+      return semestersByFiliere[filterFiliereId] || [];
+    }
+    const allSems = new Set<string>();
+    Object.values(semestersByFiliere).forEach((sems) => {
+      sems.forEach((s) => allSems.add(s));
+    });
+    return Array.from(allSems).sort();
+  }, [semestersByFiliere, filterFiliereId]);
+
+  useEffect(() => {
+    if (selectedId && !filteredSessions.some((s) => s.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [filteredSessions, selectedId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30000);
@@ -555,6 +593,7 @@ function ProfessorMesSeancesPage() {
         if (res.ok) {
           setFilieres(data.filieres || []);
           setModules(data.modules || []);
+          setSemestersByFiliere(data.semestersByFiliere || {});
         }
       } catch {
         // Filters are optional; the form will stay disabled until they load.
@@ -724,6 +763,36 @@ function ProfessorMesSeancesPage() {
             <div className="sc-now">Maintenant: {formatNow(now)}</div>
           </div>
 
+          <div style={{ display: "flex", gap: "12px", marginBottom: "18px", flexWrap: "wrap" }}>
+            <div className="sc-field" style={{ minWidth: "200px" }}>
+              <label>Filière</label>
+              <select
+                value={filterFiliereId}
+                onChange={(e) => {
+                  setFilterFiliereId(e.target.value);
+                  setFilterSemester("");
+                }}
+              >
+                <option value="">Toutes les filières</option>
+                {filieres.map((f) => (
+                  <option key={f.id} value={f.id}>{f.nom}</option>
+                ))}
+              </select>
+            </div>
+            <div className="sc-field" style={{ minWidth: "150px" }}>
+              <label>Semestre</label>
+              <select
+                value={filterSemester}
+                onChange={(e) => setFilterSemester(e.target.value)}
+              >
+                <option value="">Tous les semestres</option>
+                {availableSemestersForFilter.map((sem) => (
+                  <option key={sem} value={sem}>{sem}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className="sc-board">
             <div className="sc-grid">
               <div className="sc-corner" />
@@ -755,7 +824,7 @@ function ProfessorMesSeancesPage() {
                       height: `${(toMinutes("14:30") - toMinutes("12:30")) * PIXELS_PER_MINUTE}px`,
                     }}
                   />
-                  {sessions.filter((session) => session.day === day.value).map((session) => {
+                  {filteredSessions.filter((session) => session.day === day.value).map((session) => {
                     const active = isSessionSelectable(session, now);
                     const selected = selectedId === session.id;
 
