@@ -341,6 +341,12 @@ const BellIcon = () => (
     <path d="M8.5 17a1.5 1.5 0 0 0 3 0"/>
   </svg>
 );
+const BookIcon = () => (
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+  </svg>
+);
 const CollapseIcon = () => (
   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="13 5 7 10 13 15"/>
@@ -353,7 +359,7 @@ interface SidebarLayoutProps {
   /** Professor full name */
   profName?: string;
   /** Currently active page key */
-  activePage?: "dashboard" | "seances" | "academic" | "qr" | "etudiants" | "enseignants" | "statistiques" | "parametres";
+  activePage?: "dashboard" | "seances" | "academic" | "qr" | "etudiants" | "enseignants" | "statistiques" | "parametres" | "filieres-modules";
   /** Page title shown in topbar */
   pageTitle?: string;
   children: React.ReactNode;
@@ -466,6 +472,7 @@ export default function SidebarLayout({
       items: [
         { label: "Etudiants", icon: <StudentsIcon />, active: activePage === "etudiants", path: "/etudiants" },
         ...(isAdmin ? [{ label: "Enseignants", icon: <StudentsIcon />, active: activePage === "enseignants", path: "/enseignants" }] : []),
+        ...(isAdmin ? [{ label: "Filières & Modules", icon: <BookIcon />, active: activePage === "filieres-modules", path: "/filieres-modules" }] : []),
       ],
     },
     {
@@ -513,6 +520,11 @@ export default function SidebarLayout({
 
     if (item.label.includes("Enseignants")) {
       navigate("/enseignants");
+      return;
+    }
+
+    if (item.label.includes("Filières")) {
+      navigate("/filieres-modules");
       return;
     }
 

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, models
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -347,10 +347,86 @@ def update_academic_filiere(request, filiere_id):
     if not filiere:
         return Response({"message": "Filiere introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
+    nom = (request.data.get("nom") or "").strip()
     semesters = request.data.get("semesters") or []
+
+    if nom:
+        filiere.nom = nom
     filiere.semesters = semesters
-    filiere.save(update_fields=["semesters"])
+
+    try:
+        filiere.save()
+    except IntegrityError:
+        return Response({"message": "Cette filiere existe deja."}, status=status.HTTP_400_BAD_REQUEST)
+
     return Response(serialize_filiere(filiere))
+
+
+@api_view(["DELETE", "POST"])
+def delete_academic_filiere(request, filiere_id):
+    if request.user.role != User.Role.ADMIN:
+        return Response({"message": "Acces reserve a l'admin."}, status=status.HTTP_403_FORBIDDEN)
+
+    filiere = Filiere.objects.filter(id=filiere_id).first()
+    if not filiere:
+        return Response({"message": "Filiere introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        filiere.delete()
+    except models.ProtectedError:
+        return Response(
+            {"message": "Impossible de supprimer cette filière car elle est associée à des étudiants ou des modules."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response({"message": "Filière supprimée avec succès."}, status=status.HTTP_200_OK)
+
+
+@api_view(["POST", "PATCH"])
+def update_academic_module(request, module_id):
+    if request.user.role != User.Role.ADMIN:
+        return Response({"message": "Acces reserve a l'admin."}, status=status.HTTP_403_FORBIDDEN)
+
+    module = Module.objects.filter(id=module_id).select_related("filiere").first()
+    if not module:
+        return Response({"message": "Module introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    nom = (request.data.get("nom") or "").strip()
+    semestre = (request.data.get("semestre") or "").strip()
+
+    if nom:
+        module.nom = nom
+    if semestre:
+        if semestre not in (module.filiere.semesters or []):
+            return Response({"message": "Ce semestre ne correspond pas a la filiere."}, status=status.HTTP_400_BAD_REQUEST)
+        module.semestre = semestre
+
+    try:
+        module.save()
+    except IntegrityError:
+        return Response({"message": "Ce module existe deja pour cette filiere et ce semestre."}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(serialize_module(module))
+
+
+@api_view(["DELETE", "POST"])
+def delete_academic_module(request, module_id):
+    if request.user.role != User.Role.ADMIN:
+        return Response({"message": "Acces reserve a l'admin."}, status=status.HTTP_403_FORBIDDEN)
+
+    module = Module.objects.filter(id=module_id).first()
+    if not module:
+        return Response({"message": "Module introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        module.delete()
+    except models.ProtectedError:
+        return Response(
+            {"message": "Impossible de supprimer ce module car il est associé à des cours existants."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response({"message": "Module supprimé avec succès."}, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])

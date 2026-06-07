@@ -11,6 +11,7 @@ import EnseignantsPage from './pages/EnseignantsPage'
 import ProfileSettingsPage from './pages/ProfileSettingsPage'
 import QRSessionDashboard from './pages/QrPage'
 import ScanPage from './pages/ScanPage'
+import FilieresModulesPage from './pages/FilieresModulesPage'
 
 function App() {
 
@@ -24,6 +25,7 @@ function App() {
           <Route path='/statistiques' element={<ProtectedRoute allowedRoles={["admin"]}><StatistiquesPage/></ProtectedRoute>}/>
           <Route path='/seances' element={<ProtectedRoute allowedRoles={["enseignant"]}><MesSeancesPage/></ProtectedRoute>}/>
           <Route path='/gestion-academique' element={<ProtectedRoute allowedRoles={["admin"]}><GestionEmploiPage/></ProtectedRoute>}/>
+          <Route path='/filieres-modules' element={<ProtectedRoute allowedRoles={["admin"]}><FilieresModulesPage/></ProtectedRoute>}/>
           <Route path='/etudiants' element={<EtudiantsPage/>}/>
           <Route path='/enseignants' element={<EnseignantsPage/>}/>
           <Route path='/qr' element={<QRSessionDashboard/>}/>
