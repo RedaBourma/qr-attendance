@@ -345,6 +345,62 @@ const css = `
   }
 `;
 
+type FormationType = "licence" | "master" | "licence_excellence" | "master_excellence";
+
+const formationPresets: Record<FormationType, { label: string; semesters: string[] }> = {
+  licence: {
+    label: "Licence",
+    semesters: ["S1", "S2", "S3", "S4", "S5", "S6"]
+  },
+  master: {
+    label: "Master",
+    semesters: ["S1", "S2", "S3", "S4"]
+  },
+  licence_excellence: {
+    label: "Licence (parcours d'excellence)",
+    semesters: ["S5", "S6"]
+  },
+  master_excellence: {
+    label: "Master (parcours d'excellence)",
+    semesters: ["S1", "S2", "S3", "S4"]
+  }
+};
+
+const parseFiliereNameAndType = (nom: string, semesters: string[]): { baseNom: string; type: FormationType } => {
+  const suffixes: { type: FormationType; label: string }[] = [
+    { type: "licence_excellence", label: "Licence (parcours d'excellence)" },
+    { type: "master_excellence", label: "Master (parcours d'excellence)" },
+    { type: "licence", label: "Licence" },
+    { type: "master", label: "Master" },
+  ];
+
+  for (const s of suffixes) {
+    const withSpace = ` - ${s.label}`;
+    const withoutSpace = `-${s.label}`;
+    if (nom.endsWith(withSpace)) {
+      return {
+        baseNom: nom.slice(0, -withSpace.length).trim(),
+        type: s.type
+      };
+    }
+    if (nom.endsWith(withoutSpace)) {
+      return {
+        baseNom: nom.slice(0, -withoutSpace.length).trim(),
+        type: s.type
+      };
+    }
+  }
+
+  // Fallback if no matching suffix found
+  let type: FormationType = "licence";
+  if (semesters && semesters.length === 2 && semesters.includes("S5") && semesters.includes("S6")) {
+    type = "licence_excellence";
+  } else if (semesters && semesters.length <= 4) {
+    type = "master";
+  }
+  return { baseNom: nom.trim(), type };
+};
+
 export default function FilieresModulesPage() {
   const [filieres, setFilieres] = useState<Filiere[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
@@ -355,7 +411,7 @@ export default function FilieresModulesPage() {
 
   // Forms
   const [newFiliereNom, setNewFiliereNom] = useState("");
-  const [newFiliereType, setNewFiliereType] = useState<"licence" | "master">("licence");
+  const [newFiliereType, setNewFiliereType] = useState<FormationType>("licence");
   const [filiereSubmitting, setFiliereSubmitting] = useState(false);
 
   const [newModuleNom, setNewModuleNom] = useState("");
@@ -365,7 +421,7 @@ export default function FilieresModulesPage() {
   // Edit states
   const [editingFiliere, setEditingFiliere] = useState<Filiere | null>(null);
   const [editFiliereNom, setEditFiliereNom] = useState("");
-  const [editFiliereType, setEditFiliereType] = useState<"licence" | "master">("licence");
+  const [editFiliereType, setEditFiliereType] = useState<FormationType>("licence");
   const [filiereUpdating, setFiliereUpdating] = useState(false);
 
   const [editingModule, setEditingModule] = useState<Module | null>(null);
@@ -440,9 +496,9 @@ export default function FilieresModulesPage() {
     setFiliereSubmitting(true);
     setError("");
 
-    const semesters = newFiliereType === "licence"
-      ? ["S1", "S2", "S3", "S4", "S5", "S6"]
-      : ["S1", "S2", "S3", "S4"];
+    const preset = formationPresets[newFiliereType];
+    const semesters = preset.semesters;
+    const finalNom = `${newFiliereNom.trim()}-${preset.label}`;
 
     try {
       const res = await fetch(`${API_BASE}/seances/academic/filieres/`, {
@@ -452,7 +508,7 @@ export default function FilieresModulesPage() {
           Authorization: `Bearer ${localStorage.getItem("access")}`,
         },
         body: JSON.stringify({
-          nom: newFiliereNom,
+          nom: finalNom,
           semesters: semesters,
         }),
       });
@@ -473,9 +529,9 @@ export default function FilieresModulesPage() {
   // Filiere Update Modal triggers
   const startEditFiliere = (filiere: Filiere) => {
     setEditingFiliere(filiere);
-    setEditFiliereNom(filiere.nom);
-    const initialType = (filiere.semesters && filiere.semesters.length > 4) ? "licence" : "master";
-    setEditFiliereType(initialType);
+    const { baseNom, type } = parseFiliereNameAndType(filiere.nom, filiere.semesters);
+    setEditFiliereNom(baseNom);
+    setEditFiliereType(type);
   };
 
   const handleUpdateFiliere = async (e: React.FormEvent) => {
@@ -484,9 +540,9 @@ export default function FilieresModulesPage() {
     setFiliereUpdating(true);
     setError("");
 
-    const semesters = editFiliereType === "licence"
-      ? ["S1", "S2", "S3", "S4", "S5", "S6"]
-      : ["S1", "S2", "S3", "S4"];
+    const preset = formationPresets[editFiliereType];
+    const semesters = preset.semesters;
+    const finalNom = `${editFiliereNom.trim()}-${preset.label}`;
 
     try {
       const res = await fetch(`${API_BASE}/seances/academic/filieres/${editingFiliere.id}/`, {
@@ -496,7 +552,7 @@ export default function FilieresModulesPage() {
           Authorization: `Bearer ${localStorage.getItem("access")}`,
         },
         body: JSON.stringify({
-          nom: editFiliereNom,
+          nom: finalNom,
           semesters: semesters,
         }),
       });
@@ -734,10 +790,12 @@ export default function FilieresModulesPage() {
                       <label>Type de formation</label>
                       <select
                         value={newFiliereType}
-                        onChange={(e) => setNewFiliereType(e.target.value as "licence" | "master")}
+                        onChange={(e) => setNewFiliereType(e.target.value as FormationType)}
                       >
                         <option value="licence">Licence (S1, S2, S3, S4, S5, S6)</option>
                         <option value="master">Master (S1, S2, S3, S4)</option>
+                        <option value="licence_excellence">Licence (parcours d'excellence) (S5, S6)</option>
+                        <option value="master_excellence">Master (parcours d'excellence) (S1, S2, S3, S4)</option>
                       </select>
                     </div>
                     <button type="submit" className="fm-btn" disabled={filiereSubmitting}>
@@ -884,10 +942,12 @@ export default function FilieresModulesPage() {
                     <label>Type de formation</label>
                     <select
                       value={editFiliereType}
-                      onChange={(e) => setEditFiliereType(e.target.value as "licence" | "master")}
+                      onChange={(e) => setEditFiliereType(e.target.value as FormationType)}
                     >
                       <option value="licence">Licence (S1, S2, S3, S4, S5, S6)</option>
                       <option value="master">Master (S1, S2, S3, S4)</option>
+                      <option value="licence_excellence">Licence (parcours d'excellence) (S5, S6)</option>
+                      <option value="master_excellence">Master (parcours d'excellence) (S1, S2, S3, S4)</option>
                     </select>
                   </div>
                   <div className="fm-modal-actions">
