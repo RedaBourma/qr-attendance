@@ -12,6 +12,7 @@ import ProfileSettingsPage from './pages/ProfileSettingsPage'
 import QRSessionDashboard from './pages/QrPage'
 import ScanPage from './pages/ScanPage'
 import FilieresModulesPage from './pages/FilieresModulesPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 
 function App() {
 
@@ -19,6 +20,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path='/login' element={<LoginPage/>}/>
+        <Route path='/reset-password' element={<ResetPasswordPage/>}/>
         <Route path='/scan/:token' element={<ScanPage/>}/>
         <Route element={<ProtectedRoute/>}>
           <Route path='/dashboard' element={<ProtectedRoute allowedRoles={["enseignant"]}><DashboardPage/></ProtectedRoute>}/>

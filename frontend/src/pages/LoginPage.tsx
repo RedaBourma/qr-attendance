@@ -351,6 +351,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Forgot password states
+  const [mode, setMode] = useState<"login" | "forgot">("login");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotStatus, setForgotStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -384,6 +390,31 @@ export default function LoginPage() {
     }
   };
 
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) return;
+    setForgotSubmitting(true);
+    setForgotStatus(null);
+    try {
+      const res = await fetch(`${API_BASE}/auth/password-reset/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setForgotStatus({ type: "error", message: data.message || "Une erreur est survenue." });
+        return;
+      }
+      setForgotStatus({ type: "success", message: data.message });
+      setForgotEmail("");
+    } catch {
+      setForgotStatus({ type: "error", message: "Erreur de connexion avec le serveur." });
+    } finally {
+      setForgotSubmitting(false);
+    }
+  };
+
   return (
     <>
       <link href={FONT_LINK} rel="stylesheet" />
@@ -394,58 +425,118 @@ export default function LoginPage() {
           <Sidebar />
 
           <main className="qrp-form-panel">
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column" }}>
-              <div className="qrp-badge">
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="8" cy="8" r="6" />
-                  <line x1="8" y1="5" x2="8" y2="8" />
-                  <circle cx="8" cy="11" r="0.5" fill="currentColor" />
-                </svg>
-                Portail académique
-              </div>
+            {mode === "login" ? (
+              <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column" }}>
+                <div className="qrp-badge">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="8" cy="8" r="6" />
+                    <line x1="8" y1="5" x2="8" y2="8" />
+                    <circle cx="8" cy="11" r="0.5" fill="currentColor" />
+                  </svg>
+                  Portail académique
+                </div>
 
-              <h1 className="qrp-form-title">Bon retour</h1>
-              <p className="qrp-form-sub">Connectez-vous à votre compte institutionnel</p>
+                <h1 className="qrp-form-title">Bon retour</h1>
+                <p className="qrp-form-sub">Connectez-vous à votre compte institutionnel</p>
 
-              <div className="qrp-fields">
-                <Field
-                  label="Adresse e-mail institutionnelle"
-                  icon={<MailIcon />}
-                  type="email"
-                  placeholder="vous@universite.ma"
-                  value={email}
-                  onChange={setEmail}
-                />
-                <Field
-                  label="Mot de passe"
-                  icon={<LockIcon />}
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={setPassword}
-                />
-              </div>
+                <div className="qrp-fields">
+                  <Field
+                    label="Adresse e-mail institutionnelle"
+                    icon={<MailIcon />}
+                    type="email"
+                    placeholder="vous@universite.ma"
+                    value={email}
+                    onChange={setEmail}
+                  />
+                  <Field
+                    label="Mot de passe"
+                    icon={<LockIcon />}
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={setPassword}
+                  />
+                </div>
 
-              <div className="qrp-forgot-row">
-                <button type="button" className="qrp-forgot">Mot de passe oublié ?</button>
-              </div>
+                <div className="qrp-forgot-row">
+                  <button
+                    type="button"
+                    className="qrp-forgot"
+                    onClick={() => { setMode("forgot"); setForgotStatus(null); }}
+                  >
+                    Mot de passe oublié ?
+                  </button>
+                </div>
 
-              <button type="submit" className="qrp-btn-primary" disabled={loading}>
-                {loading ? (
-                  <>
-                    <span className="spinner"></span>
-                    Connexion...
-                  </>
-                ) : "Se connecter à QR Présence"}
-              </button>
+                <button type="submit" className="qrp-btn-primary" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <span className="spinner"></span>
+                      Connexion...
+                    </>
+                  ) : "Se connecter à QR Présence"}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleForgotSubmit} style={{ display: "flex", flexDirection: "column" }}>
+                <div className="qrp-badge">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="8" cy="8" r="6" />
+                    <line x1="8" y1="5" x2="8" y2="8" />
+                    <circle cx="8" cy="11" r="0.5" fill="currentColor" />
+                  </svg>
+                  Réinitialisation
+                </div>
 
-              {/* <div className="qrp-divider">ou continuer avec</div>
+                <h1 className="qrp-form-title">Mot de passe oublié</h1>
+                <p className="qrp-form-sub">Saisissez votre adresse e-mail institutionnelle pour recevoir un lien de réinitialisation.</p>
 
-              <button type="button" className="qrp-btn-google">
-                <GoogleIcon />
-                Continuer avec Google
-              </button> */}
-            </form>
+                {forgotStatus && (
+                  <div style={{
+                    padding: "12px",
+                    borderRadius: "10px",
+                    fontSize: "13px",
+                    marginBottom: "20px",
+                    background: forgotStatus.type === "success" ? "rgba(3,125,167,0.1)" : "#fff1f2",
+                    border: `1px solid ${forgotStatus.type === "success" ? "var(--blue)" : "#fecdd3"}`,
+                    color: forgotStatus.type === "success" ? "var(--blue-dark)" : "#be123c",
+                    lineHeight: "1.4"
+                  }}>
+                    {forgotStatus.message}
+                  </div>
+                )}
+
+                <div className="qrp-fields">
+                  <Field
+                    label="Adresse e-mail institutionnelle"
+                    icon={<MailIcon />}
+                    type="email"
+                    placeholder="vous@universite.ma"
+                    value={forgotEmail}
+                    onChange={setForgotEmail}
+                  />
+                </div>
+
+                <button type="submit" className="qrp-btn-primary" disabled={forgotSubmitting}>
+                  {forgotSubmitting ? (
+                    <>
+                      <span className="spinner"></span>
+                      Envoi du lien...
+                    </>
+                  ) : "Envoyer le lien de réinitialisation"}
+                </button>
+
+                <div className="qrp-forgot-row" style={{ marginTop: "16px", justifyContent: "center" }}>
+                  <button
+                    type="button"
+                    className="qrp-forgot"
+                    onClick={() => { setMode("login"); setForgotStatus(null); }}
+                  >
+                    Retour à la connexion
+                  </button>
+                </div>
+              </form>
+            )}
           </main>
         </div>
       </div>
