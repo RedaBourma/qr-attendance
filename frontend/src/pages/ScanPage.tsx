@@ -603,7 +603,6 @@ export default function ScanPage() {
                       onChange={(event) => setMassar(event.target.value)}
                       placeholder="Votre code Massar"
                       autoComplete="off"
-                      inputMode="numeric"
                       required
                     />
                   </div>
