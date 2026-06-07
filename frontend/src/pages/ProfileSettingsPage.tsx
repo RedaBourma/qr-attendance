@@ -105,6 +105,101 @@ const css = `
       justify-items: start;
     }
   }
+
+  .profile-form-section {
+    background: #fff;
+    border: 1px solid #dde3ee;
+    border-radius: 8px;
+    padding: 24px;
+    margin-top: 24px;
+  }
+
+  .profile-section-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    color: #1a2236;
+    margin-bottom: 18px;
+  }
+
+  .profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 400px;
+  }
+
+  .profile-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .profile-field label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+  }
+
+  .profile-field input {
+    background: #fff;
+    border: 1.5px solid #dde3ee;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: #1a2236;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .profile-field input:focus {
+    border-color: #037da7;
+  }
+
+  .profile-btn {
+    background: #037da7;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .profile-btn:hover {
+    background: #025f80;
+  }
+
+  .profile-btn:disabled {
+    background: #eef1f6;
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
+
+  .profile-alert {
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-top: 14px;
+    display: inline-block;
+  }
+
+  .profile-alert.success {
+    background: rgba(22, 163, 74, 0.1);
+    color: #16a34a;
+    border: 1px solid rgba(22, 163, 74, 0.2);
+  }
+
+  .profile-alert.error {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+    border: 1px solid rgba(220, 38, 38, 0.2);
+  }
 `;
 
 interface StoredUser {
@@ -140,9 +235,67 @@ export default function ProfileSettingsPage() {
   const [message, setMessage] = useState("");
   const initials = useMemo(() => getInitials(user), [user]);
 
+  // Password change states
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+
   useEffect(() => {
     localStorage.setItem("user", JSON.stringify(user));
   }, [user]);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordMessage("");
+    setPasswordSuccess(false);
+
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage("Le nouveau mot de passe et sa confirmation ne correspondent pas.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordMessage("Le nouveau mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+
+    setPasswordSubmitting(true);
+    const token = localStorage.getItem("access");
+
+    try {
+      const res = await fetch(`${API_BASE}/me/change-password/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setPasswordMessage(data.message || "Impossible de modifier le mot de passe.");
+        return;
+      }
+
+      setPasswordSuccess(true);
+      setPasswordMessage("Votre mot de passe a été modifié avec succès.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch {
+      setPasswordMessage("Erreur de connexion au serveur.");
+    } finally {
+      setPasswordSubmitting(false);
+    }
+  };
 
   const updateStoredUser = (nextUser: StoredUser) => {
     setUser(nextUser);
@@ -229,6 +382,47 @@ export default function ProfileSettingsPage() {
             </div>
             {message && <div className="profile-message">{message}</div>}
           </div>
+        </section>
+
+        <section className="profile-form-section">
+          <h2 className="profile-section-title">Changer le mot de passe</h2>
+          <form onSubmit={handleChangePassword} className="profile-form">
+            <div className="profile-field">
+              <label>Mot de passe actuel</label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="profile-field">
+              <label>Nouveau mot de passe</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="profile-field">
+              <label>Confirmer le nouveau mot de passe</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+            <button type="submit" className="profile-btn" disabled={passwordSubmitting}>
+              {passwordSubmitting ? "Modification..." : "Modifier le mot de passe"}
+            </button>
+          </form>
+          {passwordMessage && (
+            <div className={`profile-alert ${passwordSuccess ? "success" : "error"}`}>
+              {passwordMessage}
+            </div>
+          )}
         </section>
       </div>
     </SidebarLayout>

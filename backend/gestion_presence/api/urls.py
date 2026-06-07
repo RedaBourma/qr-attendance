@@ -1,5 +1,5 @@
 from django.urls import path
-from gestion_presence.api.auth_views import login_view, me_view
+from gestion_presence.api.auth_views import login_view, me_view, change_password_view
 from gestion_presence.api.dashboard_views import dashboard_view
 from gestion_presence.api.enseignant_views import create_enseignant, list_enseignants, update_enseignant, delete_enseignant
 from gestion_presence.api.etudiant_views import create_etudiant, list_etudiants, import_etudiants, update_etudiant, delete_etudiant
@@ -33,6 +33,7 @@ from gestion_presence.api.seance_views import (
 urlpatterns = [
     path("login/", login_view, name="login"),
     path("me/", me_view, name="me"),
+    path("me/change-password/", change_password_view, name="change_password"),
     path("dashboard/", dashboard_view, name="dashboard"),
     path("seances/", list_seances, name="list_seances"),
     path("seances/filters/", teaching_filters, name="teaching_filters"),
