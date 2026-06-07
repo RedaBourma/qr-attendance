@@ -1,7 +1,6 @@
-# from django.shortcuts import render
 from django.shortcuts import redirect
+from django.conf import settings
 
-# Create your views here.
 def home_redirect(request):
-    # return render()
-    return redirect("http://localhost:3000/login")
+    frontend_url = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3000").rstrip("/")
+    return redirect(f"{frontend_url}/login")
