@@ -10,6 +10,7 @@ interface Enseignant {
     prenom: string;
     email: string;
     role: string;
+    profile_picture?: string | null;
   };
   cours_count: number;
   filieres?: Array<{ id: number; nom: string }>;
@@ -402,6 +403,8 @@ export default function EnseignantsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Creation States
   const [form, setForm] = useState({
@@ -412,6 +415,7 @@ export default function EnseignantsPage() {
   });
   const [selectedFilieres, setSelectedFilieres] = useState<number[]>([]);
   const [selectedModules, setSelectedModules] = useState<number[]>([]);
+  const [profilePicture, setProfilePicture] = useState<File | null>(null);
 
   // Filtering for creation
   const filteredModules = useMemo(() => {
@@ -494,18 +498,24 @@ export default function EnseignantsPage() {
     setCreating(true);
     setError("");
 
+    const formData = new FormData();
+    formData.append("nom", form.nom);
+    formData.append("prenom", form.prenom);
+    formData.append("email", form.email);
+    formData.append("password", form.password);
+    selectedFilieres.forEach((id) => formData.append("filiere_ids", id.toString()));
+    selectedModules.forEach((id) => formData.append("module_ids", id.toString()));
+    if (profilePicture) {
+      formData.append("profile_picture", profilePicture);
+    }
+
     try {
       const res = await fetch(`${API_BASE}/enseignants/create/`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("access")}`,
         },
-        body: JSON.stringify({
-          ...form,
-          filiere_ids: selectedFilieres,
-          module_ids: selectedModules,
-        }),
+        body: formData,
       });
       const data = await res.json();
 
@@ -518,6 +528,11 @@ export default function EnseignantsPage() {
       setForm({ nom: "", prenom: "", email: "", password: "" });
       setSelectedFilieres([]);
       setSelectedModules([]);
+      setProfilePicture(null);
+      
+      // Reset file input element
+      const fileInput = document.getElementById("profile-pic-input") as HTMLInputElement;
+      if (fileInput) fileInput.value = "";
     } catch {
       setError("Erreur de connexion avec le serveur.");
     } finally {
@@ -535,6 +550,8 @@ export default function EnseignantsPage() {
   });
   const [editSelectedFilieres, setEditSelectedFilieres] = useState<number[]>([]);
   const [editSelectedModules, setEditSelectedModules] = useState<number[]>([]);
+  const [editProfilePicture, setEditProfilePicture] = useState<File | null>(null);
+  const [editRemovePicture, setEditRemovePicture] = useState(false);
   const [deletingEnseignantId, setDeletingEnseignantId] = useState<number | null>(null);
 
   // Filtering for editing
@@ -553,6 +570,8 @@ export default function EnseignantsPage() {
     });
     setEditSelectedFilieres(enseignant.filieres ? enseignant.filieres.map((f) => f.id) : []);
     setEditSelectedModules(enseignant.modules ? enseignant.modules.map((m) => m.id) : []);
+    setEditProfilePicture(null);
+    setEditRemovePicture(false);
   };
 
   const handleEditFiliereToggle = (filiereId: number) => {
@@ -582,20 +601,30 @@ export default function EnseignantsPage() {
   const handleUpdateEnseignant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingEnseignant) return;
+    setUpdating(true);
     setError("");
+
+    const formData = new FormData();
+    formData.append("nom", editForm.nom);
+    formData.append("prenom", editForm.prenom);
+    formData.append("email", editForm.email);
+    formData.append("password", editForm.password);
+    editSelectedFilieres.forEach((id) => formData.append("filiere_ids", id.toString()));
+    editSelectedModules.forEach((id) => formData.append("module_ids", id.toString()));
+    if (editProfilePicture) {
+      formData.append("profile_picture", editProfilePicture);
+    }
+    if (editRemovePicture) {
+      formData.append("remove_profile_picture", "true");
+    }
 
     try {
       const res = await fetch(`${API_BASE}/enseignants/${editingEnseignant.id}/update/`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("access")}`,
         },
-        body: JSON.stringify({
-          ...editForm,
-          filiere_ids: editSelectedFilieres,
-          module_ids: editSelectedModules,
-        }),
+        body: formData,
       });
 
       const data = await res.json();
@@ -611,6 +640,8 @@ export default function EnseignantsPage() {
       setEditingEnseignant(null);
     } catch {
       setError("Erreur de connexion avec le serveur.");
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -620,6 +651,7 @@ export default function EnseignantsPage() {
 
   const handleDeleteEnseignant = async () => {
     if (!deletingEnseignantId) return;
+    setDeleting(true);
     setError("");
 
     try {
@@ -641,6 +673,8 @@ export default function EnseignantsPage() {
       setDeletingEnseignantId(null);
     } catch {
       setError("Erreur de connexion avec le serveur.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -704,6 +738,16 @@ export default function EnseignantsPage() {
                     Optionnel (auto: nom@prenom)
                   </span>
                 </div>
+                <div className="ens-field">
+                  <label>Photo de profil</label>
+                  <input
+                    id="profile-pic-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => setProfilePicture(event.target.files?.[0] || null)}
+                    style={{ fontSize: "12px", padding: "5px 0 0" }}
+                  />
+                </div>
               </div>
 
               <div className="ens-academic-sections">
@@ -757,7 +801,12 @@ export default function EnseignantsPage() {
 
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <button className="ens-btn" type="submit" disabled={creating} style={{ width: "auto", minWidth: "150px" }}>
-                  {creating ? "Ajout..." : "Ajouter"}
+                  {creating ? (
+                    <>
+                      <span className="spinner"></span>
+                      Ajout...
+                    </>
+                  ) : "Ajouter"}
                 </button>
               </div>
             </form>
@@ -765,7 +814,10 @@ export default function EnseignantsPage() {
 
           <div className="ens-card">
             {loading ? (
-              <div className="ens-state">Chargement des enseignants...</div>
+              <div className="ens-state" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0" }}>
+                <div className="spinner" style={{ width: "30px", height: "30px", borderWidth: "3px", borderColor: "rgba(3,125,167,0.2)", borderTopColor: "var(--blue)" }}></div>
+                <p style={{ marginTop: "12px", color: "var(--gray-400)", fontSize: "14px" }}>Chargement des enseignants...</p>
+              </div>
             ) : filtered.length === 0 ? (
               <div className="ens-state">Aucun enseignant trouve.</div>
             ) : (
@@ -781,11 +833,45 @@ export default function EnseignantsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((enseignant) => (
-                    <tr key={enseignant.id}>
-                      <td>
-                        <div className="ens-name">{enseignant.user.prenom} {enseignant.user.nom}</div>
-                      </td>
+                  {filtered.map((enseignant) => {
+                    const initials = [enseignant.user.prenom, enseignant.user.nom]
+                      .filter(Boolean)
+                      .map((part) => part[0].toUpperCase())
+                      .join("") || "U";
+                    return (
+                      <tr key={enseignant.id}>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <div style={{
+                              width: "36px",
+                              height: "36px",
+                              borderRadius: "50%",
+                              background: "var(--blue)",
+                              color: "white",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "12px",
+                              fontWeight: "bold",
+                              overflow: "hidden",
+                              border: "2.5px solid rgba(3,125,167,0.12)",
+                              flexShrink: 0
+                            }}>
+                              {enseignant.user.profile_picture ? (
+                                <img
+                                  src={enseignant.user.profile_picture}
+                                  alt=""
+                                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                />
+                              ) : (
+                                initials
+                              )}
+                            </div>
+                            <div>
+                              <div className="ens-name">{enseignant.user.prenom} {enseignant.user.nom}</div>
+                            </div>
+                          </div>
+                        </td>
                       <td>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", maxWidth: "250px" }}>
                           {enseignant.filieres && enseignant.filieres.length > 0 ? (
@@ -820,8 +906,9 @@ export default function EnseignantsPage() {
                           </button>
                         </div>
                       </td>
-                    </tr>
-                  ))}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -868,6 +955,33 @@ export default function EnseignantsPage() {
                     <span style={{ fontSize: "9px", color: "var(--gray-400)", marginTop: "2px", lineHeight: "1.2" }}>
                       Laisser vide pour conserver le mot de passe actuel.
                     </span>
+                  </div>
+                  <div className="ens-field" style={{ gridColumn: "span 2" }}>
+                    <label>Photo de profil</label>
+                    <div style={{ display: "flex", gap: "10px", alignItems: "center", marginTop: "4px" }}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          setEditProfilePicture(e.target.files?.[0] || null);
+                          setEditRemovePicture(false);
+                        }}
+                        style={{ fontSize: "12px" }}
+                      />
+                      {editingEnseignant?.user.profile_picture && (
+                        <label style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "11px", textTransform: "none", color: "var(--gray-600)", fontWeight: "normal", cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={editRemovePicture}
+                            onChange={(e) => {
+                              setEditRemovePicture(e.target.checked);
+                              if (e.target.checked) setEditProfilePicture(null);
+                            }}
+                          />
+                          Supprimer la photo actuelle
+                        </label>
+                      )}
+                    </div>
                   </div>
 
                   {/* Edit Checkbox Lists for academic details */}
@@ -924,8 +1038,13 @@ export default function EnseignantsPage() {
                     <button type="button" className="ens-btn-secondary" onClick={() => setEditingEnseignant(null)}>
                       Annuler
                     </button>
-                    <button type="submit" className="ens-btn" style={{ width: "auto" }}>
-                      Enregistrer
+                    <button type="submit" className="ens-btn" disabled={updating} style={{ width: "auto" }}>
+                      {updating ? (
+                        <>
+                          <span className="spinner"></span>
+                          Enregistrement...
+                        </>
+                      ) : "Enregistrer"}
                     </button>
                   </div>
                 </form>
@@ -945,8 +1064,13 @@ export default function EnseignantsPage() {
                   <button type="button" className="ens-btn-secondary" onClick={() => setDeletingEnseignantId(null)}>
                     Annuler
                   </button>
-                  <button type="button" className="ens-btn-danger" onClick={handleDeleteEnseignant}>
-                    Supprimer
+                  <button type="button" className="ens-btn-danger" disabled={deleting} onClick={handleDeleteEnseignant}>
+                    {deleting ? (
+                      <>
+                        <span className="spinner" style={{ borderTopColor: "#fff" }}></span>
+                        Suppression...
+                      </>
+                    ) : "Supprimer"}
                   </button>
                 </div>
               </div>

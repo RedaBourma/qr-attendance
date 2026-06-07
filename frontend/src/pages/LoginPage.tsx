@@ -348,10 +348,12 @@ function Field({ label, icon, type = "text", placeholder, value, onChange }: Fie
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/login/`, {
         method: "POST",
@@ -375,8 +377,10 @@ export default function LoginPage() {
       const destination = role === "admin" ? "/statistiques" : role === "enseignant" ? "/dashboard" : "/seances";
       navigate(destination, { replace: true });
 
-    }catch(err) {
-      alert("Erreur de connexion. Veuillez réessayer.");
+    } catch {
+      alert("Erreur de connexion avec le serveur.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -426,8 +430,13 @@ export default function LoginPage() {
                 <button type="button" className="qrp-forgot">Mot de passe oublié ?</button>
               </div>
 
-              <button type="submit" className="qrp-btn-primary">
-                Se connecter à QR Présence
+              <button type="submit" className="qrp-btn-primary" disabled={loading}>
+                {loading ? (
+                  <>
+                    <span className="spinner"></span>
+                    Connexion...
+                  </>
+                ) : "Se connecter à QR Présence"}
               </button>
 
               {/* <div className="qrp-divider">ou continuer avec</div>

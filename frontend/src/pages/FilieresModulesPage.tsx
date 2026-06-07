@@ -355,7 +355,7 @@ export default function FilieresModulesPage() {
 
   // Forms
   const [newFiliereNom, setNewFiliereNom] = useState("");
-  const [newFiliereSemesters, setNewFiliereSemesters] = useState<string[]>([]);
+  const [newFiliereType, setNewFiliereType] = useState<"licence" | "master">("licence");
   const [filiereSubmitting, setFiliereSubmitting] = useState(false);
 
   const [newModuleNom, setNewModuleNom] = useState("");
@@ -365,17 +365,18 @@ export default function FilieresModulesPage() {
   // Edit states
   const [editingFiliere, setEditingFiliere] = useState<Filiere | null>(null);
   const [editFiliereNom, setEditFiliereNom] = useState("");
-  const [editFiliereSemesters, setEditFiliereSemesters] = useState<string[]>([]);
+  const [editFiliereType, setEditFiliereType] = useState<"licence" | "master">("licence");
+  const [filiereUpdating, setFiliereUpdating] = useState(false);
 
   const [editingModule, setEditingModule] = useState<Module | null>(null);
   const [editModuleNom, setEditModuleNom] = useState("");
   const [editModuleSemestre, setEditModuleSemestre] = useState("");
+  const [moduleUpdating, setModuleUpdating] = useState(false);
 
   // Deletion states
   const [deletingFiliereId, setDeletingFiliereId] = useState<number | null>(null);
   const [deletingModuleId, setDeletingModuleId] = useState<number | null>(null);
 
-  const semestersList = ["S1", "S2", "S3", "S4", "S5", "S6"];
 
   const loadData = async () => {
     setLoading(true);
@@ -431,18 +432,6 @@ export default function FilieresModulesPage() {
     }
   }, [availableSemestersForNewModule]);
 
-  // Toggle semester checklist helper
-  const handleSemesterToggle = (sem: string, isEdit: boolean = false) => {
-    if (isEdit) {
-      setEditFiliereSemesters((prev) =>
-        prev.includes(sem) ? prev.filter((s) => s !== sem) : [...prev, sem].sort()
-      );
-    } else {
-      setNewFiliereSemesters((prev) =>
-        prev.includes(sem) ? prev.filter((s) => s !== sem) : [...prev, sem].sort()
-      );
-    }
-  };
 
   // Filiere Create
   const handleCreateFiliere = async (e: React.FormEvent) => {
@@ -450,6 +439,10 @@ export default function FilieresModulesPage() {
     if (!newFiliereNom.trim()) return;
     setFiliereSubmitting(true);
     setError("");
+
+    const semesters = newFiliereType === "licence"
+      ? ["S1", "S2", "S3", "S4", "S5", "S6"]
+      : ["S1", "S2", "S3", "S4"];
 
     try {
       const res = await fetch(`${API_BASE}/seances/academic/filieres/`, {
@@ -460,7 +453,7 @@ export default function FilieresModulesPage() {
         },
         body: JSON.stringify({
           nom: newFiliereNom,
-          semesters: newFiliereSemesters,
+          semesters: semesters,
         }),
       });
       const data = await res.json();
@@ -470,7 +463,6 @@ export default function FilieresModulesPage() {
       }
       setFilieres((prev) => [...prev, data].sort((a, b) => a.nom.localeCompare(b.nom)));
       setNewFiliereNom("");
-      setNewFiliereSemesters([]);
     } catch {
       setError("Erreur lors de la création de la filière.");
     } finally {
@@ -482,13 +474,19 @@ export default function FilieresModulesPage() {
   const startEditFiliere = (filiere: Filiere) => {
     setEditingFiliere(filiere);
     setEditFiliereNom(filiere.nom);
-    setEditFiliereSemesters(filiere.semesters || []);
+    const initialType = (filiere.semesters && filiere.semesters.length > 4) ? "licence" : "master";
+    setEditFiliereType(initialType);
   };
 
   const handleUpdateFiliere = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingFiliere || !editFiliereNom.trim()) return;
+    setFiliereUpdating(true);
     setError("");
+
+    const semesters = editFiliereType === "licence"
+      ? ["S1", "S2", "S3", "S4", "S5", "S6"]
+      : ["S1", "S2", "S3", "S4"];
 
     try {
       const res = await fetch(`${API_BASE}/seances/academic/filieres/${editingFiliere.id}/`, {
@@ -499,7 +497,7 @@ export default function FilieresModulesPage() {
         },
         body: JSON.stringify({
           nom: editFiliereNom,
-          semesters: editFiliereSemesters,
+          semesters: semesters,
         }),
       });
       const data = await res.json();
@@ -513,6 +511,8 @@ export default function FilieresModulesPage() {
       setEditingFiliere(null);
     } catch {
       setError("Erreur lors de la modification de la filière.");
+    } finally {
+      setFiliereUpdating(false);
     }
   };
 
@@ -588,6 +588,7 @@ export default function FilieresModulesPage() {
   const handleUpdateModule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingModule || !editModuleNom.trim() || !editModuleSemestre) return;
+    setModuleUpdating(true);
     setError("");
 
     try {
@@ -611,6 +612,8 @@ export default function FilieresModulesPage() {
       setEditingModule(null);
     } catch {
       setError("Erreur lors de la modification du module.");
+    } finally {
+      setModuleUpdating(false);
     }
   };
 
@@ -658,8 +661,9 @@ export default function FilieresModulesPage() {
           {error && <div className="fm-error">{error}</div>}
 
           {loading ? (
-            <div className="fm-card" style={{ textAlign: "center", padding: "40px 0" }}>
-              <p style={{ color: "var(--gray-400)" }}>Chargement des structures académiques...</p>
+            <div className="fm-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0" }}>
+              <div className="spinner" style={{ width: "30px", height: "30px", borderWidth: "3px", borderColor: "rgba(3,125,167,0.2)", borderTopColor: "var(--blue)" }}></div>
+              <p style={{ marginTop: "12px", color: "var(--gray-400)", fontSize: "14px" }}>Chargement des structures académiques...</p>
             </div>
           ) : (
             <div className="fm-grid">
@@ -727,22 +731,22 @@ export default function FilieresModulesPage() {
                       />
                     </div>
                     <div className="fm-field">
-                      <label>Semestres autorisés</label>
-                      <div className="fm-checkbox-grid">
-                        {semestersList.map((sem) => (
-                          <label key={sem} className="fm-checkbox-item">
-                            <input
-                              type="checkbox"
-                              checked={newFiliereSemesters.includes(sem)}
-                              onChange={() => handleSemesterToggle(sem)}
-                            />
-                            {sem}
-                          </label>
-                        ))}
-                      </div>
+                      <label>Type de formation</label>
+                      <select
+                        value={newFiliereType}
+                        onChange={(e) => setNewFiliereType(e.target.value as "licence" | "master")}
+                      >
+                        <option value="licence">Licence (S1, S2, S3, S4, S5, S6)</option>
+                        <option value="master">Master (S1, S2, S3, S4)</option>
+                      </select>
                     </div>
                     <button type="submit" className="fm-btn" disabled={filiereSubmitting}>
-                      {filiereSubmitting ? "Création..." : "Créer la filière"}
+                      {filiereSubmitting ? (
+                        <>
+                          <span className="spinner"></span>
+                          Création...
+                        </>
+                      ) : "Créer la filière"}
                     </button>
                   </form>
                 </div>
@@ -841,7 +845,12 @@ export default function FilieresModulesPage() {
                         className="fm-btn"
                         disabled={moduleSubmitting || availableSemestersForNewModule.length === 0}
                       >
-                        {moduleSubmitting ? "Création..." : "Créer le module"}
+                        {moduleSubmitting ? (
+                          <>
+                            <span className="spinner"></span>
+                            Création...
+                          </>
+                        ) : "Créer le module"}
                       </button>
                     </form>
                   </div>
@@ -872,26 +881,26 @@ export default function FilieresModulesPage() {
                     />
                   </div>
                   <div className="fm-field">
-                    <label>Semestres autorisés</label>
-                    <div className="fm-checkbox-grid">
-                      {semestersList.map((sem) => (
-                        <label key={sem} className="fm-checkbox-item">
-                          <input
-                            type="checkbox"
-                            checked={editFiliereSemesters.includes(sem)}
-                            onChange={() => handleSemesterToggle(sem, true)}
-                          />
-                          {sem}
-                        </label>
-                      ))}
-                    </div>
+                    <label>Type de formation</label>
+                    <select
+                      value={editFiliereType}
+                      onChange={(e) => setEditFiliereType(e.target.value as "licence" | "master")}
+                    >
+                      <option value="licence">Licence (S1, S2, S3, S4, S5, S6)</option>
+                      <option value="master">Master (S1, S2, S3, S4)</option>
+                    </select>
                   </div>
                   <div className="fm-modal-actions">
                     <button type="button" className="fm-btn-secondary" onClick={() => setEditingFiliere(null)}>
                       Annuler
                     </button>
-                    <button type="submit" className="fm-btn">
-                      Enregistrer
+                    <button type="submit" className="fm-btn" disabled={filiereUpdating}>
+                      {filiereUpdating ? (
+                        <>
+                          <span className="spinner"></span>
+                          Enregistrement...
+                        </>
+                      ) : "Enregistrer"}
                     </button>
                   </div>
                 </form>
@@ -929,8 +938,13 @@ export default function FilieresModulesPage() {
                     <button type="button" className="fm-btn-secondary" onClick={() => setEditingModule(null)}>
                       Annuler
                     </button>
-                    <button type="submit" className="fm-btn">
-                      Enregistrer
+                    <button type="submit" className="fm-btn" disabled={moduleUpdating}>
+                      {moduleUpdating ? (
+                        <>
+                          <span className="spinner"></span>
+                          Enregistrement...
+                        </>
+                      ) : "Enregistrer"}
                     </button>
                   </div>
                 </form>
