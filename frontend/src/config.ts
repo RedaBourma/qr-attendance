@@ -1,7 +1,7 @@
 function resolveApiBase(): string {
   const raw =
     (import.meta.env.VITE_API_URL as string | undefined)?.trim() ||
-    "http://localhost:8000/api";
+    "https://qr-attendance-backend-ii2m.onrender.com/api";
 
   let base = raw.replace(/\/$/, "");
 
