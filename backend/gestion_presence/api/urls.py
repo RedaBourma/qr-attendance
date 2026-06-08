@@ -8,7 +8,7 @@ from gestion_presence.api.auth_views import (
 )
 from gestion_presence.api.dashboard_views import dashboard_view
 from gestion_presence.api.enseignant_views import create_enseignant, list_enseignants, update_enseignant, delete_enseignant
-from gestion_presence.api.etudiant_views import create_etudiant, list_etudiants, import_etudiants, update_etudiant, delete_etudiant
+from gestion_presence.api.etudiant_views import create_etudiant, list_etudiants, import_etudiants, update_etudiant, delete_etudiant, bulk_delete_etudiants
 from gestion_presence.api.qrcode_views import (
     close_qr_session,
     current_qr_session,
@@ -78,4 +78,5 @@ urlpatterns = [
     path("etudiants/import/", import_etudiants, name="import_etudiants"),
     path("etudiants/<int:etudiant_id>/update/", update_etudiant, name="update_etudiant"),
     path("etudiants/<int:etudiant_id>/delete/", delete_etudiant, name="delete_etudiant"),
+    path("etudiants/bulk-delete/", bulk_delete_etudiants, name="bulk_delete_etudiants"),
 ]

@@ -428,6 +428,12 @@ const css = `
   .et-btn-danger:hover {
     background: #b91c1c;
   }
+  .et-checkbox {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--blue);
+  }
 `;
 
 function getUserRole() {
@@ -542,6 +548,9 @@ export default function EtudiantsPage() {
     filiere_id: "",
   });
   const [deletingStudentId, setDeletingStudentId] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const handleStartEdit = (etudiant: Etudiant) => {
     setEditingStudent(etudiant);
@@ -618,10 +627,69 @@ export default function EtudiantsPage() {
 
       setEtudiants((current) => current.filter((et) => et.id !== deletingStudentId));
       setDeletingStudentId(null);
+      // Clean selectedIds if the deleted student was selected
+      setSelectedIds((prev) => prev.filter((id) => id !== deletingStudentId));
     } catch {
       setError("Erreur de connexion avec le serveur.");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    const visibleIds = filteredEtudiants.map((et) => et.id);
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
+
+    if (allVisibleSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => {
+        const newSelection = [...prev];
+        visibleIds.forEach((id) => {
+          if (!newSelection.includes(id)) {
+            newSelection.push(id);
+          }
+        });
+        return newSelection;
+      });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkDeleting(true);
+    setError("");
+
+    try {
+      const res = await fetch(`${API_BASE}/etudiants/bulk-delete/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access")}`,
+        },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Impossible de supprimer les étudiants sélectionnés.");
+        return;
+      }
+
+      setEtudiants((current) => current.filter((et) => !selectedIds.includes(et.id)));
+      setSelectedIds([]);
+      setShowBulkDeleteConfirm(false);
+    } catch {
+      setError("Erreur de connexion avec le serveur.");
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -738,7 +806,19 @@ export default function EtudiantsPage() {
                   : "Etudiants lies aux filieres et modules que vous enseignez."}
               </div>
             </div>
-            <div className="et-count">{filteredEtudiants.length} etudiants</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              {role === "admin" && selectedIds.length > 0 && (
+                <button
+                  type="button"
+                  className="et-btn-danger"
+                  style={{ padding: "8px 12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}
+                  onClick={() => setShowBulkDeleteConfirm(true)}
+                >
+                  Supprimer la sélection ({selectedIds.length})
+                </button>
+              )}
+              <div className="et-count">{filteredEtudiants.length} etudiants</div>
+            </div>
           </div>
 
           {error && <div className="et-error">{error}</div>}
@@ -913,6 +993,19 @@ export default function EtudiantsPage() {
                 <table className="et-table">
                   <thead>
                     <tr>
+                      {role === "admin" && (
+                        <th style={{ width: "40px", paddingRight: 0 }}>
+                          <input
+                            type="checkbox"
+                            className="et-checkbox"
+                            checked={
+                              filteredEtudiants.length > 0 &&
+                              filteredEtudiants.every((et) => selectedIds.includes(et.id))
+                            }
+                            onChange={handleToggleSelectAll}
+                          />
+                        </th>
+                      )}
                       <th>Etudiant</th>
                       <th>Code Massar</th>
                       <th>Filiere</th>
@@ -922,6 +1015,16 @@ export default function EtudiantsPage() {
                   <tbody>
                     {filteredEtudiants.map((etudiant) => (
                       <tr key={etudiant.id}>
+                        {role === "admin" && (
+                          <td style={{ width: "40px", paddingRight: 0, verticalAlign: "middle" }}>
+                            <input
+                              type="checkbox"
+                              className="et-checkbox"
+                              checked={selectedIds.includes(etudiant.id)}
+                              onChange={() => handleToggleSelect(etudiant.id)}
+                            />
+                          </td>
+                        )}
                         <td>
                           <div className="et-name">{etudiant.prenom} {etudiant.nom}</div>
                           <div className="et-email">{etudiant.email}</div>
@@ -1051,6 +1154,31 @@ export default function EtudiantsPage() {
                   </button>
                   <button type="button" className="et-btn-danger" disabled={deleting} onClick={handleDeleteStudent}>
                     {deleting ? (
+                      <>
+                        <span className="spinner" style={{ borderTopColor: "#fff" }}></span>
+                        Suppression...
+                      </>
+                    ) : "Supprimer"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Bulk Delete Confirmation Modal */}
+          {showBulkDeleteConfirm && (
+            <div className="et-modal-backdrop">
+              <div className="et-modal" style={{ maxWidth: "400px" }}>
+                <div className="et-modal-title">Confirmer la suppression en masse</div>
+                <p style={{ fontSize: "14px", color: "var(--gray-600)", marginBottom: "20px" }}>
+                  Êtes-vous sûr de vouloir supprimer les <strong>{selectedIds.length}</strong> étudiants sélectionnés ? Cette action est irréversible et supprimera tout leur historique de présence.
+                </p>
+                <div className="et-modal-actions">
+                  <button type="button" className="et-btn-secondary" onClick={() => setShowBulkDeleteConfirm(false)}>
+                    Annuler
+                  </button>
+                  <button type="button" className="et-btn-danger" disabled={bulkDeleting} onClick={handleBulkDelete}>
+                    {bulkDeleting ? (
                       <>
                         <span className="spinner" style={{ borderTopColor: "#fff" }}></span>
                         Suppression...

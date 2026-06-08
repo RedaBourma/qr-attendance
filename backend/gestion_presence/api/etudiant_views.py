@@ -386,3 +386,33 @@ def delete_etudiant(request, etudiant_id):
         )
 
     return Response({"message": "Etudiant supprime avec succes."}, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+def bulk_delete_etudiants(request):
+    if request.user.role != User.Role.ADMIN:
+        return Response(
+            {"message": "Acces reserve a l'admin."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    ids = request.data.get("ids", [])
+    if not ids:
+        return Response(
+            {"message": "Aucun etudiant selectionne."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        with transaction.atomic():
+            etudiants = Etudiant.objects.filter(id__in=ids).select_related("user")
+            users_to_delete = [e.user for e in etudiants]
+            for user in users_to_delete:
+                user.delete()
+    except Exception as e:
+        return Response(
+            {"message": f"Erreur lors de la suppression en masse : {str(e)}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response({"message": "Etudiants supprimes avec succes."}, status=status.HTTP_200_OK)
