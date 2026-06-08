@@ -29,13 +29,16 @@ def file_to_base64_data_uri(uploaded_file):
 
 
 def serialize_user(user, request=None):
+    profile_pic = user.profile_picture
+    if profile_pic and not profile_pic.startswith("data:"):
+        profile_pic = None
     return {
         "id": user.id,
         "email": user.email,
         "nom": user.nom,
         "prenom": user.prenom,
         "role": user.role,
-        "profile_picture": user.profile_picture or None,
+        "profile_picture": profile_pic,
     }
 
 @api_view(["POST"])

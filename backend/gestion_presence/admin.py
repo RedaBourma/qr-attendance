@@ -5,9 +5,63 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from .models import  *
 
 
+from django import forms
+from django.contrib.auth.forms import UserChangeForm, UserCreationForm
+
+class CustomUserChangeForm(UserChangeForm):
+    profile_picture_file = forms.ImageField(label="Photo de profil (Télécharger)", required=False)
+
+    class Meta(UserChangeForm.Meta):
+        model = User
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "profile_picture" in self.fields:
+            self.fields["profile_picture"].widget = forms.Textarea(
+                attrs={"rows": 3, "placeholder": "Contenu Base64 (généré automatiquement à partir du fichier ci-dessus)"}
+            )
+            self.fields["profile_picture"].required = False
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        uploaded_file = self.cleaned_data.get("profile_picture_file")
+        if uploaded_file:
+            import base64
+            content = uploaded_file.read()
+            content_type = getattr(uploaded_file, "content_type", None) or "image/jpeg"
+            base64_str = base64.b64encode(content).decode("utf-8")
+            user.profile_picture = f"data:{content_type};base64,{base64_str}"
+        if commit:
+            user.save()
+        return user
+
+
+class CustomUserCreationForm(UserCreationForm):
+    profile_picture_file = forms.ImageField(label="Photo de profil (Télécharger)", required=False)
+
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = ("email", "nom", "prenom", "role")
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        uploaded_file = self.cleaned_data.get("profile_picture_file")
+        if uploaded_file:
+            import base64
+            content = uploaded_file.read()
+            content_type = getattr(uploaded_file, "content_type", None) or "image/jpeg"
+            base64_str = base64.b64encode(content).decode("utf-8")
+            user.profile_picture = f"data:{content_type};base64,{base64_str}"
+        if commit:
+            user.save()
+        return user
+
+
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
     model = User
+    form = CustomUserChangeForm
+    add_form = CustomUserCreationForm
     list_display = ("email", "nom", "prenom", "role", "is_staff", "is_active")
     list_filter = ("role", "is_staff", "is_active")
     ordering = ("nom", "prenom")
@@ -15,7 +69,7 @@ class UserAdmin(DjangoUserAdmin):
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        ("Personal info", {"fields": ("nom", "prenom", "role", "profile_picture")}),
+        ("Personal info", {"fields": ("nom", "prenom", "role", "profile_picture", "profile_picture_file")}),
         ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
         ("Important dates", {"fields": ("last_login", "date_joined")}),
     )
@@ -24,7 +78,7 @@ class UserAdmin(DjangoUserAdmin):
             None,
             {
                 "classes": ("wide",),
-                "fields": ("email", "nom", "prenom", "role", "password1", "password2"),
+                "fields": ("email", "nom", "prenom", "role", "profile_picture_file", "password1", "password2"),
             },
         ),
     )
