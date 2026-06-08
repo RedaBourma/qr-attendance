@@ -36,6 +36,8 @@ interface QRSession {
   absentCount: number;
   attended: StudentEntry[];
   missed: StudentEntry[];
+  isStillGoing: boolean;
+  coursId?: number | null;
 }
 
 function authHeaders() {
@@ -662,6 +664,17 @@ export default function QRSessionDashboard() {
   const [tab, setTab] = useState<"present" | "absent">("present");
   const [nowTick, setNowTick] = useState(0);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+
+  const isEnseignant = useMemo(() => {
+    const rawUser = localStorage.getItem("user");
+    if (!rawUser) return false;
+    try {
+      return JSON.parse(rawUser).role === "enseignant";
+    } catch {
+      return false;
+    }
+  }, []);
 
   const studentScanUrl = session?.token ? buildScanPageUrl(session.token) : "";
 
@@ -731,6 +744,67 @@ export default function QRSessionDashboard() {
       setSession(data.seance);
     } else {
       setError(data.message || "Impossible de terminer la seance.");
+    }
+  };
+
+  const getCurrentLocation = (): Promise<GeolocationPosition> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("La géolocalisation n'est pas supportée par votre navigateur."));
+      } else {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        });
+      }
+    });
+  };
+
+  const restartSession = async () => {
+    if (!session) return;
+    setRestarting(true);
+    setError("");
+    try {
+      let lat: number | null = null;
+      let lng: number | null = null;
+      try {
+        const position = await getCurrentLocation();
+        lat = position.coords.latitude;
+        lng = position.coords.longitude;
+      } catch (err) {
+        setError("L'autorisation de géolocalisation est requise pour relancer la séance.");
+        setRestarting(false);
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/seances/generate-qr/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access")}`,
+        },
+        body: JSON.stringify({
+          cours_id: session.coursId || session.id,
+          validite_min: 10,
+          latitude: lat,
+          longitude: lng,
+          force: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || "Impossible de relancer la seance.");
+        return;
+      }
+      setSession(data.seance);
+      if (data.seance.id !== session.id) {
+        navigate(`/qr/${data.seance.id}`, { replace: true });
+      }
+    } catch {
+      setError("Erreur de connexion au serveur.");
+    } finally {
+      setRestarting(false);
     }
   };
 
@@ -822,6 +896,31 @@ export default function QRSessionDashboard() {
                       Exporter tout
                     </button>
                   </div>
+
+                  {(!session.running && session.isStillGoing && isEnseignant) && (
+                    <button 
+                      className="qrd-btn primary" 
+                      onClick={restartSession}
+                      style={{ width: "100%", marginBottom: "16px" }}
+                      disabled={restarting}
+                    >
+                      {restarting ? (
+                        <>
+                          <span className="spinner"></span>
+                          Relancement...
+                        </>
+                      ) : (
+                        <>
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
+                            <path d="M23 4v6h-6"/>
+                            <path d="M1 20v-6h6"/>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                          </svg>
+                          Relancer la séance QR
+                        </>
+                      )}
+                    </button>
+                  )}
 
                   {/* Toggle link for advanced actions */}
                   <button 

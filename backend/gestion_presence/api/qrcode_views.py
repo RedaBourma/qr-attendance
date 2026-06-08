@@ -168,6 +168,15 @@ def serialize_qr_session(seance):
         room = cours.salle or "Non precisee"
         public_id = str(seance.id)
 
+    now_local = timezone.localtime()
+    if is_temp:
+        is_still_going = seance.heure_debut <= now <= seance.heure_fin
+    else:
+        is_still_going = (
+            seance.date_seance == now_local.date() and
+            cours.heure_debut <= now_local.time() <= cours.heure_fin
+        )
+
     return {
         "id": public_id,
         "running": running,
@@ -190,6 +199,8 @@ def serialize_qr_session(seance):
         "absentCount": len(missed),
         "attended": attended,
         "missed": missed,
+        "isStillGoing": is_still_going,
+        "coursId": cours.id if cours else None,
     }
 
 
@@ -252,14 +263,13 @@ def generate_qr_for_cours(request):
         seance = TemporarySeance.objects.select_related("module", "module__filiere").filter(
             id=temp_id,
             enseignant=enseignant,
-            est_ouverte=True,
             heure_fin__gt=timezone.now(),
         ).first()
 
         if not seance:
             return Response({"message": "Seance temporaire introuvable ou terminee."}, status=status.HTTP_404_NOT_FOUND)
 
-        if seance.token_qr and timezone.now() < seance.expiration and not request.data.get("force"):
+        if seance.token_qr and timezone.now() < seance.expiration and seance.est_ouverte and not request.data.get("force"):
             return Response({"seance": serialize_qr_session(seance)})
 
         create_or_refresh_temporary_qr(seance, validite_min, latitude=latitude, longitude=longitude)
@@ -274,8 +284,11 @@ def generate_qr_for_cours(request):
     if not cours:
         return Response({"message": "Cours introuvable ou non autorise."}, status=status.HTTP_404_NOT_FOUND)
 
-    now = timezone.localtime()
-    today = now.date()
+    now_local = timezone.localtime()
+    if now_local.time() > cours.heure_fin:
+        return Response({"message": "Ce cours est déjà terminé pour aujourd'hui."}, status=status.HTTP_400_BAD_REQUEST)
+
+    today = now_local.date()
     heure_debut = timezone.make_aware(datetime.combine(today, cours.heure_debut))
 
     seance, created = Seance.objects.get_or_create(
@@ -386,12 +399,6 @@ def close_qr_session(request, seance_id):
 
     if not can_access_seance(request.user, seance):
         return Response({"message": "Acces non autorise."}, status=status.HTTP_403_FORBIDDEN)
-
-    if is_temp:
-        seance.est_ouverte = False
-        snapshot = serialize_qr_session(seance)
-        seance.delete()
-        return Response({"seance": snapshot})
 
     seance.est_ouverte = False
     seance.save(update_fields=["est_ouverte"])

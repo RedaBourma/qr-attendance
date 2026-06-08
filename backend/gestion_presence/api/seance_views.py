@@ -182,7 +182,6 @@ def list_seances(request):
         cours = get_enseignant_cours(owner)
         temporary_seances = TemporarySeance.objects.select_related("module", "module__filiere", "enseignant").filter(
             enseignant=owner,
-            est_ouverte=True,
             heure_fin__gt=timezone.now(),
         )
     else:
@@ -193,7 +192,6 @@ def list_seances(request):
             owner = Enseignant.objects.select_related("user").filter(id=enseignant_id).first()
             temporary_seances = TemporarySeance.objects.select_related("module", "module__filiere", "enseignant").filter(
                 enseignant_id=enseignant_id,
-                est_ouverte=True,
                 heure_fin__gt=timezone.now(),
             )
 
