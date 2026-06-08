@@ -403,10 +403,12 @@ function formatRole(role?: string) {
 }
 
 function Avatar({ src, initials, className }: { src?: string | null; initials: string; className: string }) {
-  if (src) {
+  const [imgError, setImgError] = useState(false);
+
+  if (src && !imgError) {
     return (
       <div className={className}>
-        <img src={src} alt="" />
+        <img src={src} alt="" onError={() => setImgError(true)} />
       </div>
     );
   }

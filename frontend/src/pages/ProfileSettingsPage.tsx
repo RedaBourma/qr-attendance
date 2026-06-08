@@ -243,6 +243,12 @@ export default function ProfileSettingsPage() {
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
 
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [user.profile_picture]);
+
   useEffect(() => {
     localStorage.setItem("user", JSON.stringify(user));
   }, [user]);
@@ -359,7 +365,11 @@ export default function ProfileSettingsPage() {
       <div className="profile-shell">
         <section className="profile-panel">
           <div className="profile-avatar">
-            {user.profile_picture ? <img src={user.profile_picture} alt="" /> : initials}
+            {user.profile_picture && !imgError ? (
+              <img src={user.profile_picture} alt="" onError={() => setImgError(true)} />
+            ) : (
+              initials
+            )}
           </div>
 
           <div>

@@ -2,6 +2,27 @@ import { useEffect, useMemo, useState } from "react";
 import SidebarLayout from "../components/Sidebar";
 import { API_BASE } from "../config";
 
+function EnseignantAvatar({ src, initials }: { src?: string | null; initials: string }) {
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [src]);
+
+  if (src && !imgError) {
+    return (
+      <img
+        src={src}
+        alt=""
+        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return <>{initials}</>;
+}
+
 interface Enseignant {
   id: number;
   user: {
@@ -857,15 +878,7 @@ export default function EnseignantsPage() {
                               border: "2.5px solid rgba(3,125,167,0.12)",
                               flexShrink: 0
                             }}>
-                              {enseignant.user.profile_picture ? (
-                                <img
-                                  src={enseignant.user.profile_picture}
-                                  alt=""
-                                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                />
-                              ) : (
-                                initials
-                              )}
+                              <EnseignantAvatar src={enseignant.user.profile_picture} initials={initials} />
                             </div>
                             <div>
                               <div className="ens-name">{enseignant.user.prenom} {enseignant.user.nom}</div>
