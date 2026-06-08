@@ -137,14 +137,17 @@ def create_etudiant(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    clean_nom = nom.replace(" ", "").lower()
+    clean_prenom = prenom.replace(" ", "").lower()
+
     if not email:
-        first_prenom_char = prenom[0].lower() if prenom else ""
-        email = f"{first_prenom_char}.{nom.lower()}@edu.umi.ac.ma"
+        first_prenom_char = clean_prenom[0] if clean_prenom else ""
+        email = f"{first_prenom_char}.{clean_nom}@edu.umi.ac.ma"
 
     if not password:
-        first_nom_char = nom[0].lower() if nom else ""
+        first_nom_char = clean_nom[0] if clean_nom else ""
         first_4_massar = code_massar[:4]
-        password = f"{prenom.lower()}{first_nom_char}@{first_4_massar}"
+        password = f"{clean_prenom}{first_nom_char}@{first_4_massar}"
 
     filiere = Filiere.objects.filter(id=filiere_id).first()
     if not filiere:
@@ -266,13 +269,16 @@ def import_etudiants(request):
             errors.append(f"Ligne {index} : Le prénom, le nom et le code Massar sont obligatoires.")
             continue
 
-        if not email:
-            first_prenom_char = prenom[0].lower() if prenom else ""
-            email = f"{first_prenom_char}.{nom.lower()}@edu.umi.ac.ma"
+        clean_nom = nom.replace(" ", "").lower()
+        clean_prenom = prenom.replace(" ", "").lower()
 
-        first_nom_char = nom[0].lower() if nom else ""
+        if not email:
+            first_prenom_char = clean_prenom[0] if clean_prenom else ""
+            email = f"{first_prenom_char}.{clean_nom}@edu.umi.ac.ma"
+
+        first_nom_char = clean_nom[0] if clean_nom else ""
         first_4_massar = code_massar[:4]
-        password = f"{prenom.lower()}{first_nom_char}@{first_4_massar}"
+        password = f"{clean_prenom}{first_nom_char}@{first_4_massar}"
 
         try:
             with transaction.atomic():

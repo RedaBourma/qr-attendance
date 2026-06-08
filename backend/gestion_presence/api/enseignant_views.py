@@ -52,11 +52,14 @@ def create_enseignant(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    clean_nom = nom.replace(" ", "").lower()
+    clean_prenom = prenom.replace(" ", "").lower()
+
     if not email:
-        email = f"{prenom[0].lower()}.{nom.lower()}@umi.ac.ma"
+        email = f"{clean_prenom[0]}.{clean_nom}@umi.ac.ma"
 
     if not password:
-        password = f"{nom.lower()}@{prenom.lower()}"
+        password = f"{clean_nom}@{clean_prenom}"
 
     # Handle lists from either JSON or multipart form data
     filiere_ids = request.data.getlist("filiere_ids")
