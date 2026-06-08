@@ -53,7 +53,7 @@ def create_enseignant(request):
         )
 
     if not email:
-        email = f"{prenom.lower()}.{nom.lower()}@umi.ac.ma"
+        email = f"{prenom[0].lower()}.{nom.lower()}@umi.ac.ma"
 
     if not password:
         password = f"{nom.lower()}@{prenom.lower()}"

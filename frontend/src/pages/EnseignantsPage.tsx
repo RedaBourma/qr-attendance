@@ -728,7 +728,7 @@ export default function EnseignantsPage() {
                   <label>Email</label>
                   <input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} />
                   <span style={{ fontSize: "9px", color: "var(--gray-400)", marginTop: "2px", lineHeight: "1.2" }}>
-                    Optionnel (auto: prenom.nom@umi.ac.ma)
+                    Optionnel (auto: p.nom@umi.ac.ma)
                   </span>
                 </div>
                 <div className="ens-field">
