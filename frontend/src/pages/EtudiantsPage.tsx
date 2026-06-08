@@ -806,19 +806,7 @@ export default function EtudiantsPage() {
                   : "Etudiants lies aux filieres et modules que vous enseignez."}
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              {role === "admin" && selectedIds.length > 0 && (
-                <button
-                  type="button"
-                  className="et-btn-danger"
-                  style={{ padding: "8px 12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}
-                  onClick={() => setShowBulkDeleteConfirm(true)}
-                >
-                  Supprimer la sélection ({selectedIds.length})
-                </button>
-              )}
-              <div className="et-count">{filteredEtudiants.length} etudiants</div>
-            </div>
+            <div className="et-count">{filteredEtudiants.length} etudiants</div>
           </div>
 
           {error && <div className="et-error">{error}</div>}
@@ -979,6 +967,42 @@ export default function EtudiantsPage() {
               />
             </div>
           </div>
+
+          {/* Selection Banner */}
+          {role === "admin" && selectedIds.length > 0 && (
+            <div className="et-selection-banner" style={{
+              background: "rgba(220,38,38,0.05)",
+              border: "1px solid rgba(220,38,38,0.2)",
+              borderRadius: "10px",
+              padding: "12px 16px",
+              marginBottom: "18px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}>
+              <span style={{ fontSize: "14px", fontWeight: "700", color: "#dc2626" }}>
+                {selectedIds.length} étudiant{selectedIds.length > 1 ? "s" : ""} sélectionné{selectedIds.length > 1 ? "s" : ""}
+              </span>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  type="button"
+                  className="et-btn-secondary"
+                  style={{ padding: "6px 12px", fontSize: "12px" }}
+                  onClick={() => setSelectedIds([])}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  className="et-btn-danger"
+                  style={{ padding: "6px 12px", fontSize: "12px" }}
+                  onClick={() => setShowBulkDeleteConfirm(true)}
+                >
+                  Supprimer la sélection
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="et-table-card">
             {loading ? (
