@@ -10,27 +10,32 @@ from rest_framework.decorators import parser_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+import base64
 from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
 
 
+def file_to_base64_data_uri(uploaded_file):
+    if not uploaded_file:
+        return None
+    try:
+        content = uploaded_file.read()
+        content_type = getattr(uploaded_file, "content_type", None) or "image/jpeg"
+        base64_str = base64.b64encode(content).decode("utf-8")
+        return f"data:{content_type};base64,{base64_str}"
+    except Exception:
+        return None
+
+
 def serialize_user(user, request=None):
-    profile_picture = None
-
-    if user.profile_picture:
-        profile_picture = user.profile_picture.url
-
-        if request is not None:
-            profile_picture = request.build_absolute_uri(profile_picture)
-
     return {
         "id": user.id,
         "email": user.email,
         "nom": user.nom,
         "prenom": user.prenom,
         "role": user.role,
-        "profile_picture": profile_picture,
+        "profile_picture": user.profile_picture or None,
     }
 
 @api_view(["POST"])
@@ -72,7 +77,6 @@ def me_view(request):
 
     if request.method == "DELETE":
         if user.profile_picture:
-            user.profile_picture.delete(save=False)
             user.profile_picture = None
             user.save(update_fields=["profile_picture"])
 
@@ -86,10 +90,14 @@ def me_view(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    if user.profile_picture:
-        user.profile_picture.delete(save=False)
+    base64_uri = file_to_base64_data_uri(profile_picture)
+    if not base64_uri:
+        return Response(
+            {"message": "Format de fichier invalide."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-    user.profile_picture = profile_picture
+    user.profile_picture = base64_uri
     user.save(update_fields=["profile_picture"])
 
     return Response({"user": serialize_user(user, request)})

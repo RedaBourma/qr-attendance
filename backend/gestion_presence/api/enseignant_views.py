@@ -5,7 +5,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from gestion_presence.models import Enseignant, User
-from gestion_presence.api.auth_views import serialize_user
+from gestion_presence.api.auth_views import serialize_user, file_to_base64_data_uri
 
 
 def serialize_enseignant(enseignant, request=None):
@@ -95,7 +95,7 @@ def create_enseignant(request):
                 role=User.Role.ENSEIGNANT,
             )
             if profile_picture:
-                user.profile_picture = profile_picture
+                user.profile_picture = file_to_base64_data_uri(profile_picture)
                 user.save(update_fields=["profile_picture"])
 
             enseignant = Enseignant.objects.create(user=user)
@@ -178,13 +178,9 @@ def update_enseignant(request, enseignant_id):
                 user.set_password(password)
 
             if remove_picture:
-                if user.profile_picture:
-                    user.profile_picture.delete(save=False)
-                    user.profile_picture = None
+                user.profile_picture = None
             elif profile_picture:
-                if user.profile_picture:
-                    user.profile_picture.delete(save=False)
-                user.profile_picture = profile_picture
+                user.profile_picture = file_to_base64_data_uri(profile_picture)
 
             user.save()
 
