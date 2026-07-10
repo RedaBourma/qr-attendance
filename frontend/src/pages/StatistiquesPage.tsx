@@ -504,7 +504,7 @@ export default function StatistiquesPage() {
               ) : tab === "students" ? (
                 <div className="st-table-wrap">
                   <table className="st-table">
-                    <thead><tr><th>Étudiant</th><th>Classe</th><th>Présences</th><th>Absences</th><th>Taux</th></tr></thead>
+                    <thead><tr><th>Étudiant</th><th>Classe</th><th>Présences</th><th>Absences</th><th>Taux</th><th>Action</th></tr></thead>
                     <tbody>
                       {filteredStudents.map((student) => (
                         <tr key={student.id}>
@@ -513,6 +513,20 @@ export default function StatistiquesPage() {
                           <td>{student.presences} / {student.eligibleSessions}</td>
                           <td>{student.absences}</td>
                           <td><Progress value={student.attendanceRate} /></td>
+                          <td>
+                            <button
+                              className="st-link"
+                              style={{ background: "var(--blue-soft)", color: "var(--blue)" }}
+                              onClick={() => {
+                                setTab("export");
+                                setExportScope("student");
+                                setSelectedStudent(student);
+                                setStudentSearch(student.name);
+                              }}
+                            >
+                              Exporter
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -521,7 +535,7 @@ export default function StatistiquesPage() {
               ) : tab === "courses" ? (
                 <div className="st-table-wrap">
                   <table className="st-table">
-                    <thead><tr><th>Cours</th><th>Enseignant</th><th>Séances</th><th>Présences</th><th>Taux</th></tr></thead>
+                    <thead><tr><th>Cours</th><th>Enseignant</th><th>Séances</th><th>Présences</th><th>Taux</th><th>Action</th></tr></thead>
                     <tbody>
                       {filteredCourses.map((course) => (
                         <tr key={course.id}>
@@ -530,6 +544,23 @@ export default function StatistiquesPage() {
                           <td>{course.sessions}</td>
                           <td>{course.presences} / {course.eligible}</td>
                           <td><Progress value={course.attendanceRate} /></td>
+                          <td>
+                            <button
+                              className="st-link"
+                              style={{ background: "var(--blue-soft)", color: "var(--blue)" }}
+                              onClick={() => {
+                                setTab("export");
+                                setExportScope("class");
+                                const fil = academicData?.filieres.find(f => f.nom === course.filiere);
+                                if (fil) {
+                                  setSelectedFiliereId(String(fil.id));
+                                }
+                                setExportSemester(course.semestre);
+                              }}
+                            >
+                              Exporter
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -538,7 +569,7 @@ export default function StatistiquesPage() {
               ) : tab === "teachers" ? (
                 <div className="st-table-wrap">
                   <table className="st-table">
-                    <thead><tr><th>Enseignant</th><th>Cours</th><th>Séances</th><th>Présences</th><th>Taux</th></tr></thead>
+                    <thead><tr><th>Enseignant</th><th>Cours</th><th>Séances</th><th>Présences</th><th>Taux</th><th>Action</th></tr></thead>
                     <tbody>
                       {filteredTeachers.map((teacher) => (
                         <tr key={teacher.id}>
@@ -547,6 +578,20 @@ export default function StatistiquesPage() {
                           <td>{teacher.sessions}<div className="st-small">{teacher.temporarySessions} temporaires</div></td>
                           <td>{teacher.presences} / {teacher.eligible}</td>
                           <td><Progress value={teacher.attendanceRate} /></td>
+                          <td>
+                            <button
+                              className="st-link"
+                              style={{ background: "var(--blue-soft)", color: "var(--blue)" }}
+                              onClick={() => {
+                                setTab("export");
+                                setExportScope("teacher");
+                                setSelectedTeacherId(String(teacher.id));
+                                setExportSemester("Tous");
+                              }}
+                            >
+                              Exporter
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -554,6 +599,14 @@ export default function StatistiquesPage() {
                 </div>
               ) : (
                 <div className="ext-form">
+                  <div className="st-session" style={{ borderLeftColor: "var(--blue)", background: "var(--gray-50)", marginBottom: "10px" }}>
+                    <div style={{ fontWeight: "bold", color: "var(--gray-800)", marginBottom: "4px" }}>💡 Outil d'extraction et d'exportation de données</div>
+                    <div style={{ fontSize: "12px", color: "var(--gray-600)", lineHeight: "1.4" }}>
+                      Cet outil vous permet de générer des rapports de présence et d'absence au format Excel (XLSX). 
+                      Vous pouvez extraire les données pour un **étudiant spécifique**, pour une **classe / filière entière**, ou pour les cours d'un **enseignant**, filtrés par **semestre** et par **statut de présence**.
+                    </div>
+                  </div>
+
                   <div className="ext-section">
                     <span className="ext-label">Type d'extraction</span>
                     <div className="ext-scopes">
