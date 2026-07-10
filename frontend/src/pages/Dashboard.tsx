@@ -334,25 +334,25 @@ export default function DashboardPage() {
 
           <div className="db-stats">
             <div className="db-stat-card">
-              <div className="db-stat-label">Seances generees</div>
+              <div className="db-stat-label">Séances générées</div>
               <div className="db-stat-value">{stats.totalSeances}</div>
             </div>
             <div className="db-stat-card">
-              <div className="db-stat-label">Seances actives</div>
+              <div className="db-stat-label">Séances actives</div>
               <div className="db-stat-value">{stats.activeSeances}</div>
             </div>
             <div className="db-stat-card">
-              <div className="db-stat-label">Presences totales</div>
+              <div className="db-stat-label">Présences totales</div>
               <div className="db-stat-value">{stats.totalPresences}</div>
             </div>
             <div className="db-stat-card">
-              <div className="db-stat-label">Presences moyennes / seance</div>
+              <div className="db-stat-label">Présences moyennes / séance</div>
               <div className="db-stat-value">{stats.avgPresences}</div>
             </div>
           </div>
 
           <div className="db-toolbar">
-            <div className="db-toolbar-title">Mes seances recentes</div>
+            <div className="db-toolbar-title">Mes séances récentes</div>
             <input
               className="db-search"
               type="text"
@@ -367,7 +367,7 @@ export default function DashboardPage() {
             >
               <option value="all">Toutes</option>
               <option value="active">Actives</option>
-              <option value="expired">Expirees</option>
+              <option value="expired">Expirées</option>
             </select>
           </div>
 
@@ -375,18 +375,18 @@ export default function DashboardPage() {
             {loading ? (
               <div className="db-state">Chargement du dashboard...</div>
             ) : filtered.length === 0 ? (
-              <div className="db-state">Aucune seance trouvee.</div>
+              <div className="db-state">Aucune séance trouvée.</div>
             ) : (
               <div className="db-table-wrap">
                 <table className="db-table">
                   <thead>
                     <tr>
                       <th>Module</th>
-                      <th>Filiere</th>
+                      <th>Filière</th>
                       <th>Cours</th>
                       <th>Date</th>
                       <th>Statut</th>
-                      <th>Presences</th>
+                      <th>Présences</th>
                       <th>QR Code</th>
                     </tr>
                   </thead>
@@ -399,20 +399,20 @@ export default function DashboardPage() {
                         <td>
                           {formatDate(seance.date)}
                           <br />
-                          <span>Expire a {formatTime(seance.expiresAt)}</span>
+                          <span>Expire à {formatTime(seance.expiresAt)}</span>
                         </td>
                         <td>
                           <span className={`db-status ${seance.status}`}>
-                            {seance.status === "active" ? "Active" : "Expiree"}
+                            {seance.status === "active" ? "Active" : "Expirée"}
                           </span>
                         </td>
-                        <td>{seance.presences} etudiants</td>
+                        <td>{seance.presences} étudiants</td>
                         <td>
                           <button
                             className="db-qr-btn"
                             onClick={() => navigate(`/qr/${seance.id}`)}
                           >
-                            {seance.status === "active" ? "Voir QR" : "Resultats"}
+                            {seance.status === "active" ? "Voir QR" : "Résultats"}
                           </button>
                         </td>
                       </tr>
