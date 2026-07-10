@@ -634,16 +634,18 @@ export default function SidebarLayout({
                     borderRadius: "8px",
                     fontWeight: "bold",
                     display: "flex",
-                    alignItems: "center"
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 14px"
                   }}
                   onClick={handleSwitchRole}
                 >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: "10px", color: "var(--blue)" }}>
+                  <span className="sb-item-label" style={{ marginLeft: 0 }}>
+                    {storedUser.role === "admin" ? "Accès Enseignant" : "Accès Admin"}
+                  </span>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: "var(--blue)" }}>
                     <path d="M17 2.1l4 4-4 4M3 22v-6h6M21 6H9a6 6 0 0 0-6 6v2M3 17.9l-4-4 4-4M21 2v6h-6M3 12h12a6 6 0 0 0 6-6V4" />
                   </svg>
-                  <span className="sb-item-label">
-                    {storedUser.role === "admin" ? "Mode Professeur" : "Mode Admin"}
-                  </span>
                 </button>
               )}
             </div>
