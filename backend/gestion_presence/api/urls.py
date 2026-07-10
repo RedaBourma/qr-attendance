@@ -5,10 +5,26 @@ from gestion_presence.api.auth_views import (
     change_password_view,
     password_reset_request_view,
     password_reset_confirm_view,
+    switch_role_view,
 )
 from gestion_presence.api.dashboard_views import dashboard_view
-from gestion_presence.api.enseignant_views import create_enseignant, list_enseignants, update_enseignant, delete_enseignant
-from gestion_presence.api.etudiant_views import create_etudiant, list_etudiants, import_etudiants, update_etudiant, delete_etudiant, bulk_delete_etudiants
+from gestion_presence.api.enseignant_views import (
+    create_enseignant,
+    list_enseignants,
+    update_enseignant,
+    delete_enseignant,
+    import_enseignants,
+    download_teacher_template,
+)
+from gestion_presence.api.etudiant_views import (
+    create_etudiant,
+    list_etudiants,
+    import_etudiants,
+    update_etudiant,
+    delete_etudiant,
+    bulk_delete_etudiants,
+    download_student_template,
+)
 from gestion_presence.api.qrcode_views import (
     close_qr_session,
     current_qr_session,
@@ -73,10 +89,14 @@ urlpatterns = [
     path("enseignants/create/", create_enseignant, name="create_enseignant"),
     path("enseignants/<int:enseignant_id>/update/", update_enseignant, name="update_enseignant"),
     path("enseignants/<int:enseignant_id>/delete/", delete_enseignant, name="delete_enseignant"),
+    path("enseignants/import/", import_enseignants, name="import_enseignants"),
+    path("enseignants/template/", download_teacher_template, name="download_teacher_template"),
     path("etudiants/", list_etudiants, name="list_etudiants"),
     path("etudiants/create/", create_etudiant, name="create_etudiant"),
     path("etudiants/import/", import_etudiants, name="import_etudiants"),
+    path("etudiants/template/", download_student_template, name="download_student_template"),
     path("etudiants/<int:etudiant_id>/update/", update_etudiant, name="update_etudiant"),
     path("etudiants/<int:etudiant_id>/delete/", delete_etudiant, name="delete_etudiant"),
     path("etudiants/bulk-delete/", bulk_delete_etudiants, name="bulk_delete_etudiants"),
+    path("me/switch-role/", switch_role_view, name="switch_role_view"),
 ]

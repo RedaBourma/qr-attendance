@@ -434,6 +434,14 @@ export default function EnseignantsPage() {
     email: "",
     password: "",
   });
+  const [activeTab, setActiveTab] = useState<"manual" | "import">("manual");
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    success: number;
+    total: number;
+    errors: string[];
+  } | null>(null);
   const [selectedFilieres, setSelectedFilieres] = useState<number[]>([]);
   const [selectedModules, setSelectedModules] = useState<number[]>([]);
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
@@ -512,6 +520,82 @@ export default function EnseignantsPage() {
     setSelectedModules((prev) =>
       prev.includes(moduleId) ? prev.filter((id) => id !== moduleId) : [...prev, moduleId]
     );
+  };
+
+  const handleImportExcel = async () => {
+    if (!importFile) return;
+    setImporting(true);
+    setError("");
+    setImportResult(null);
+
+    const formData = new FormData();
+    formData.append("file", importFile);
+
+    try {
+      const res = await fetch(`${API_BASE}/enseignants/import/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access")}`,
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setImportResult({
+          success: data.success,
+          total: data.total,
+          errors: data.errors || [],
+        });
+        
+        const token = localStorage.getItem("access");
+        const refreshRes = await fetch(`${API_BASE}/enseignants/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          setEnseignants(refreshData.enseignants);
+        }
+      } else {
+        setError(data.message || "Erreur lors de l'importation.");
+        if (data.errors) {
+          setImportResult({
+            success: data.success || 0,
+            total: data.total || 0,
+            errors: data.errors,
+          });
+        }
+      }
+    } catch {
+      setError("Erreur de connexion avec le serveur.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/enseignants/template/`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access")}`,
+        },
+      });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "template_enseignants.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      setError("Impossible de télécharger le modèle.");
+    }
   };
 
   const handleCreateEnseignant = async (event: React.FormEvent) => {
@@ -734,103 +818,214 @@ export default function EnseignantsPage() {
           {error && <div className="ens-error">{error}</div>}
 
           <div className="ens-form-card">
-            <div className="ens-form-title">Ajouter un enseignant</div>
-            <form onSubmit={handleCreateEnseignant} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div className="ens-form-inputs">
-                <div className="ens-field">
-                  <label>Nom</label>
-                  <input value={form.nom} onChange={(event) => updateForm("nom", event.target.value)} required />
-                </div>
-                <div className="ens-field">
-                  <label>Prenom</label>
-                  <input value={form.prenom} onChange={(event) => updateForm("prenom", event.target.value)} required />
-                </div>
-                <div className="ens-field">
-                  <label>Email</label>
-                  <input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} />
-                  <span style={{ fontSize: "9px", color: "var(--gray-400)", marginTop: "2px", lineHeight: "1.2" }}>
-                    Optionnel (auto: p.nom@umi.ac.ma)
-                  </span>
-                </div>
-                <div className="ens-field">
-                  <label>Mot de passe</label>
-                  <input type="password" value={form.password} onChange={(event) => updateForm("password", event.target.value)} />
-                  <span style={{ fontSize: "9px", color: "var(--gray-400)", marginTop: "2px", lineHeight: "1.2" }}>
-                    Optionnel (auto: nom@prenom)
-                  </span>
-                </div>
-                <div className="ens-field">
-                  <label>Photo de profil</label>
-                  <input
-                    id="profile-pic-input"
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => setProfilePicture(event.target.files?.[0] || null)}
-                    style={{ fontSize: "12px", padding: "5px 0 0" }}
-                  />
-                </div>
-              </div>
+            <div className="ens-tabs" style={{ display: "flex", gap: "16px", marginBottom: "18px", borderBottom: "1px solid var(--gray-200)", paddingBottom: "10px" }}>
+              <button
+                type="button"
+                className={`ens-tab-btn ${activeTab === "manual" ? "active" : ""}`}
+                onClick={() => setActiveTab("manual")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: "6px 12px",
+                  fontSize: "14px",
+                  fontWeight: activeTab === "manual" ? "800" : "500",
+                  color: activeTab === "manual" ? "var(--blue)" : "var(--gray-600)",
+                  borderBottom: activeTab === "manual" ? "2.5px solid var(--blue)" : "none",
+                  cursor: "pointer",
+                  fontFamily: "inherit"
+                }}
+              >
+                Ajout manuel
+              </button>
+              <button
+                type="button"
+                className={`ens-tab-btn ${activeTab === "import" ? "active" : ""}`}
+                onClick={() => setActiveTab("import")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: "6px 12px",
+                  fontSize: "14px",
+                  fontWeight: activeTab === "import" ? "800" : "500",
+                  color: activeTab === "import" ? "var(--blue)" : "var(--gray-600)",
+                  borderBottom: activeTab === "import" ? "2.5px solid var(--blue)" : "none",
+                  cursor: "pointer",
+                  fontFamily: "inherit"
+                }}
+              >
+                Importation par liste
+              </button>
+            </div>
 
-              <div className="ens-academic-sections">
-                <div className="ens-checkbox-group">
-                  <div className="ens-checkbox-group-title">Filières</div>
-                  <div className="ens-checkbox-list">
-                    {allFilieres.map((filiere) => (
-                      <label key={filiere.id} className="ens-checkbox-item">
-                        <input
-                          type="checkbox"
-                          checked={selectedFilieres.includes(filiere.id)}
-                          onChange={() => handleFiliereToggle(filiere.id)}
-                        />
-                        {filiere.nom}
-                      </label>
-                    ))}
-                    {allFilieres.length === 0 && (
-                      <span style={{ fontSize: "12px", color: "var(--gray-400)" }}>Aucune filière disponible</span>
-                    )}
+            {activeTab === "manual" ? (
+              <form onSubmit={handleCreateEnseignant} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div className="ens-form-inputs">
+                  <div className="ens-field">
+                    <label>Nom</label>
+                    <input value={form.nom} onChange={(event) => updateForm("nom", event.target.value)} required />
+                  </div>
+                  <div className="ens-field">
+                    <label>Prenom</label>
+                    <input value={form.prenom} onChange={(event) => updateForm("prenom", event.target.value)} required />
+                  </div>
+                  <div className="ens-field">
+                    <label>Email</label>
+                    <input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} />
+                    <span style={{ fontSize: "9px", color: "var(--gray-400)", marginTop: "2px", lineHeight: "1.2" }}>
+                      Optionnel (auto: p.nom@umi.ac.ma)
+                    </span>
+                  </div>
+                  <div className="ens-field">
+                    <label>Mot de passe</label>
+                    <input type="password" value={form.password} onChange={(event) => updateForm("password", event.target.value)} />
+                    <span style={{ fontSize: "9px", color: "var(--gray-400)", marginTop: "2px", lineHeight: "1.2" }}>
+                      Optionnel (auto: nom@prenom)
+                    </span>
+                  </div>
+                  <div className="ens-field">
+                    <label>Photo de profil</label>
+                    <input
+                      id="profile-pic-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => setProfilePicture(event.target.files?.[0] || null)}
+                      style={{ fontSize: "12px", padding: "5px 0 0" }}
+                    />
                   </div>
                 </div>
 
-                <div className="ens-checkbox-group">
-                  <div className="ens-checkbox-group-title">Modules</div>
-                  <div className="ens-checkbox-list">
-                    {filteredModules.map((module) => (
-                      <label key={module.id} className="ens-checkbox-item">
-                        <input
-                          type="checkbox"
-                          checked={selectedModules.includes(module.id)}
-                          onChange={() => handleModuleToggle(module.id)}
-                        />
-                        <span>
-                          {module.nom}{" "}
-                          <span style={{ fontSize: "11px", color: "var(--gray-400)", fontWeight: "normal" }}>
-                            ({module.filiere} - {module.semestre})
+                <div className="ens-academic-sections">
+                  <div className="ens-checkbox-group">
+                    <div className="ens-checkbox-group-title">Filières</div>
+                    <div className="ens-checkbox-list">
+                      {allFilieres.map((filiere) => (
+                        <label key={filiere.id} className="ens-checkbox-item">
+                          <input
+                            type="checkbox"
+                            checked={selectedFilieres.includes(filiere.id)}
+                            onChange={() => handleFiliereToggle(filiere.id)}
+                          />
+                          {filiere.nom}
+                        </label>
+                      ))}
+                      {allFilieres.length === 0 && (
+                        <span style={{ fontSize: "12px", color: "var(--gray-400)" }}>Aucune filière disponible</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="ens-checkbox-group">
+                    <div className="ens-checkbox-group-title">Modules</div>
+                    <div className="ens-checkbox-list">
+                      {filteredModules.map((module) => (
+                        <label key={module.id} className="ens-checkbox-item">
+                          <input
+                            type="checkbox"
+                            checked={selectedModules.includes(module.id)}
+                            onChange={() => handleModuleToggle(module.id)}
+                          />
+                          <span>
+                            {module.nom}{" "}
+                            <span style={{ fontSize: "11px", color: "var(--gray-400)", fontWeight: "normal" }}>
+                              ({module.filiere} - {module.semestre})
+                            </span>
                           </span>
+                        </label>
+                      ))}
+                      {filteredModules.length === 0 && (
+                        <span style={{ fontSize: "12px", color: "var(--gray-400)" }}>
+                          {selectedFilieres.length === 0
+                            ? "Sélectionnez une filière pour voir ses modules"
+                            : "Aucun module trouvé pour les filières sélectionnées"}
                         </span>
-                      </label>
-                    ))}
-                    {filteredModules.length === 0 && (
-                      <span style={{ fontSize: "12px", color: "var(--gray-400)" }}>
-                        {selectedFilieres.length === 0
-                          ? "Sélectionnez une filière pour voir ses modules"
-                          : "Aucun module trouvé pour les filières sélectionnées"}
-                      </span>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button className="ens-btn" type="submit" disabled={creating} style={{ width: "auto", minWidth: "150px" }}>
-                  {creating ? (
-                    <>
-                      <span className="spinner"></span>
-                      Ajout...
-                    </>
-                  ) : "Ajouter"}
-                </button>
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button className="ens-btn" type="submit" disabled={creating} style={{ width: "auto", minWidth: "150px" }}>
+                    {creating ? (
+                      <>
+                        <span className="spinner"></span>
+                        Ajout...
+                      </>
+                    ) : "Ajouter"}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="ens-import-panel">
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px" }}>
+                  <div className="ens-field" style={{ border: "none", background: "transparent", padding: 0 }}>
+                    <label style={{ marginBottom: "4px" }}>Fichier (.xlsx ou .csv)</label>
+                    <input
+                      type="file"
+                      accept=".xlsx,.csv"
+                      onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                      style={{ fontSize: "12px" }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
+                  <button
+                    className="ens-btn"
+                    type="button"
+                    disabled={importing || !importFile}
+                    onClick={handleImportExcel}
+                    style={{ width: "auto", minWidth: "150px" }}
+                  >
+                    {importing ? (
+                      <>
+                        <span className="spinner"></span>
+                        Importation...
+                      </>
+                    ) : "Importer les enseignants"}
+                  </button>
+                  <button
+                    className="ens-btn-secondary"
+                    type="button"
+                    onClick={handleDownloadTemplate}
+                    style={{
+                      border: "1px solid var(--gray-200)",
+                      borderRadius: "9px",
+                      background: "var(--white)",
+                      padding: "10px 14px",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: "800",
+                      color: "var(--gray-600)"
+                    }}
+                  >
+                    Télécharger le modèle
+                  </button>
+                </div>
+
+                {importResult && (
+                  <div className="et-import-results" style={{ marginTop: "18px", padding: "14px", border: "1px solid var(--gray-200)", borderRadius: "10px", background: "var(--gray-50)" }}>
+                    <div style={{ fontSize: "14px", fontWeight: "800", color: "var(--gray-800)", marginBottom: "8px" }}>Rapport d'importation</div>
+                    <div style={{ fontSize: "13px", color: "var(--blue)" }}>
+                      ✅ {importResult.success} / {importResult.total} enseignants importés avec succès.
+                    </div>
+                    {importResult.errors && importResult.errors.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: "12px", fontWeight: "bold", color: "#be123c", marginTop: "10px" }}>
+                          Erreurs rencontrées ({importResult.errors.length}) :
+                        </div>
+                        <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid rgba(220,38,38,0.1)", borderRadius: "6px", padding: "8px", background: "#fff1f2", marginTop: "6px" }}>
+                          {importResult.errors.map((err, i) => (
+                            <div style={{ fontSize: "11px", color: "#be123c", marginBottom: "4px" }} key={i}>
+                              • {err}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </form>
+            )}
           </div>
 
           <div className="ens-card">

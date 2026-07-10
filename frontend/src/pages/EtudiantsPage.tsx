@@ -538,6 +538,28 @@ export default function EtudiantsPage() {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/etudiants/template/`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access")}`,
+        },
+      });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "template_etudiants.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      setError("Impossible de télécharger le modèle.");
+    }
+  };
+
   const [editingStudent, setEditingStudent] = useState<Etudiant | null>(null);
   const [editForm, setEditForm] = useState({
     nom: "",
@@ -914,6 +936,13 @@ export default function EtudiantsPage() {
                           Importation...
                         </>
                       ) : "Importer les étudiants"}
+                    </button>
+                    <button
+                      className="et-btn-secondary"
+                      type="button"
+                      onClick={handleDownloadTemplate}
+                    >
+                      Télécharger le modèle
                     </button>
                   </div>
 
