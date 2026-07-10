@@ -315,7 +315,6 @@ export default function StatistiquesPage() {
   const [exportType, setExportType] = useState<"all" | "present" | "absent">("all");
   const [exportSemester, setExportSemester] = useState("Tous");
   
-  const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<StudentStat | null>(null);
   
   const [selectedFiliereId, setSelectedFiliereId] = useState("");
@@ -370,21 +369,7 @@ export default function StatistiquesPage() {
     loadStats();
   }, []);
 
-  const studentResults = useMemo(() => {
-    const q = studentSearch.trim().toLowerCase();
-    if (!q) return [];
-    return students.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.email.toLowerCase().includes(q) ||
-        s.codeMassar.toLowerCase().includes(q)
-    ).slice(0, 10);
-  }, [students, studentSearch]);
 
-  const handleSelectStudent = (s: StudentStat) => {
-    setSelectedStudent(s);
-    setStudentSearch(s.name);
-  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -504,7 +489,7 @@ export default function StatistiquesPage() {
               ) : tab === "students" ? (
                 <div className="st-table-wrap">
                   <table className="st-table">
-                    <thead><tr><th>Étudiant</th><th>Classe</th><th>Présences</th><th>Absences</th><th>Taux</th></tr></thead>
+                    <thead><tr><th>Étudiant</th><th>Classe</th><th>Présences</th><th>Absences</th><th>Taux</th><th>Action</th></tr></thead>
                     <tbody>
                       {filteredStudents.map((student) => (
                         <tr key={student.id}>
@@ -513,6 +498,19 @@ export default function StatistiquesPage() {
                           <td>{student.presences} / {student.eligibleSessions}</td>
                           <td>{student.absences}</td>
                           <td><Progress value={student.attendanceRate} /></td>
+                          <td>
+                            <button
+                              className="st-link"
+                              style={{ background: "var(--blue-soft)", color: "var(--blue)" }}
+                              onClick={() => {
+                                setTab("export");
+                                setExportScope("student");
+                                setSelectedStudent(student);
+                              }}
+                            >
+                              Exporter
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -521,7 +519,7 @@ export default function StatistiquesPage() {
               ) : tab === "courses" ? (
                 <div className="st-table-wrap">
                   <table className="st-table">
-                    <thead><tr><th>Cours</th><th>Enseignant</th><th>Séances</th><th>Présences</th><th>Taux</th></tr></thead>
+                    <thead><tr><th>Cours</th><th>Enseignant</th><th>Séances</th><th>Présences</th><th>Taux</th><th>Action</th></tr></thead>
                     <tbody>
                       {filteredCourses.map((course) => (
                         <tr key={course.id}>
@@ -530,6 +528,23 @@ export default function StatistiquesPage() {
                           <td>{course.sessions}</td>
                           <td>{course.presences} / {course.eligible}</td>
                           <td><Progress value={course.attendanceRate} /></td>
+                          <td>
+                            <button
+                              className="st-link"
+                              style={{ background: "var(--blue-soft)", color: "var(--blue)" }}
+                              onClick={() => {
+                                setTab("export");
+                                setExportScope("class");
+                                const fil = academicData?.filieres.find(f => f.nom === course.filiere);
+                                if (fil) {
+                                  setSelectedFiliereId(String(fil.id));
+                                }
+                                setExportSemester(course.semestre);
+                              }}
+                            >
+                              Exporter
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -538,7 +553,7 @@ export default function StatistiquesPage() {
               ) : tab === "teachers" ? (
                 <div className="st-table-wrap">
                   <table className="st-table">
-                    <thead><tr><th>Enseignant</th><th>Cours</th><th>Séances</th><th>Présences</th><th>Taux</th></tr></thead>
+                    <thead><tr><th>Enseignant</th><th>Cours</th><th>Séances</th><th>Présences</th><th>Taux</th><th>Action</th></tr></thead>
                     <tbody>
                       {filteredTeachers.map((teacher) => (
                         <tr key={teacher.id}>
@@ -547,6 +562,20 @@ export default function StatistiquesPage() {
                           <td>{teacher.sessions}<div className="st-small">{teacher.temporarySessions} temporaires</div></td>
                           <td>{teacher.presences} / {teacher.eligible}</td>
                           <td><Progress value={teacher.attendanceRate} /></td>
+                          <td>
+                            <button
+                              className="st-link"
+                              style={{ background: "var(--blue-soft)", color: "var(--blue)" }}
+                              onClick={() => {
+                                setTab("export");
+                                setExportScope("teacher");
+                                setSelectedTeacherId(String(teacher.id));
+                                setExportSemester("Tous");
+                              }}
+                            >
+                              Exporter
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -554,6 +583,14 @@ export default function StatistiquesPage() {
                 </div>
               ) : (
                 <div className="ext-form">
+                  <div className="st-session" style={{ borderLeftColor: "var(--blue)", background: "var(--gray-50)", marginBottom: "10px" }}>
+                    <div style={{ fontWeight: "bold", color: "var(--gray-800)", marginBottom: "4px" }}>💡 Outil d'extraction et d'exportation de données</div>
+                    <div style={{ fontSize: "12px", color: "var(--gray-600)", lineHeight: "1.4" }}>
+                      Cet outil vous permet de générer des rapports de présence et d'absence au format Excel (XLSX). 
+                      Vous pouvez extraire les données pour un **étudiant spécifique**, pour une **classe / filière entière**, ou pour les cours d'un **enseignant**, filtrés par **semestre** et par **statut de présence**.
+                    </div>
+                  </div>
+
                   <div className="ext-section">
                     <span className="ext-label">Type d'extraction</span>
                     <div className="ext-scopes">
@@ -562,7 +599,6 @@ export default function StatistiquesPage() {
                         onClick={() => {
                           setExportScope("student");
                           setSelectedStudent(null);
-                          setStudentSearch("");
                         }}
                       >
                         👤 Étudiant
@@ -583,37 +619,27 @@ export default function StatistiquesPage() {
                   </div>
 
                   {exportScope === "student" && (
-                    <div className="ext-section" style={{ position: "relative" }}>
+                    <div className="ext-section">
                       <span className="ext-label">Sélectionner l'étudiant</span>
-                      <input
-                        className="ext-input"
-                        placeholder="Saisir le nom, email ou code Massar..."
-                        value={studentSearch}
+                      <select
+                        className="ext-select"
+                        value={selectedStudent?.id || ""}
                         onChange={(e) => {
-                          setStudentSearch(e.target.value);
-                          if (selectedStudent && e.target.value !== selectedStudent.name) {
-                            setSelectedStudent(null);
-                          }
+                          const id = Number(e.target.value);
+                          const s = students.find((std) => std.id === id) || null;
+                          setSelectedStudent(s);
                         }}
-                      />
-                      {studentResults.length > 0 && !selectedStudent && (
-                        <div className="ext-search-results">
-                          {studentResults.map((s) => (
-                            <div
-                              key={s.id}
-                              className="ext-search-item"
-                              onClick={() => handleSelectStudent(s)}
-                            >
-                              <strong>{s.name}</strong> ({s.codeMassar}) — {s.filiere}
-                            </div>
+                      >
+                        <option value="">-- Choisir un étudiant --</option>
+                        {students
+                          .slice()
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} ({s.codeMassar}) — {s.filiere}
+                            </option>
                           ))}
-                        </div>
-                      )}
-                      {selectedStudent && (
-                        <div style={{ fontSize: "12px", color: "var(--green)", marginTop: "4px", fontWeight: "bold" }}>
-                          ✓ Étudiant sélectionné : {selectedStudent.name} ({selectedStudent.codeMassar})
-                        </div>
-                      )}
+                      </select>
                     </div>
                   )}
 
