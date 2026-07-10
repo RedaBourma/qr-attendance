@@ -804,7 +804,7 @@ export default function EnseignantsPage() {
           <div className="ens-header">
             <div>
               <div className="ens-title">Enseignants</div>
-              <div className="ens-subtitle">Liste reservee a l'administrateur.</div>
+              <div className="ens-subtitle">Liste réservée à l'administrateur.</div>
             </div>
             <input
               className="ens-search"
@@ -865,7 +865,7 @@ export default function EnseignantsPage() {
                     <input value={form.nom} onChange={(event) => updateForm("nom", event.target.value)} required />
                   </div>
                   <div className="ens-field">
-                    <label>Prenom</label>
+                    <label>Prénom</label>
                     <input value={form.prenom} onChange={(event) => updateForm("prenom", event.target.value)} required />
                   </div>
                   <div className="ens-field">

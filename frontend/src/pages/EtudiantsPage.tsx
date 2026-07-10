@@ -817,18 +817,18 @@ export default function EtudiantsPage() {
   return (
     <>
       <style>{css}</style>
-      <SidebarLayout activePage="etudiants" pageTitle="Etudiants">
+      <SidebarLayout activePage="etudiants" pageTitle="Étudiants">
         <div className="et-root">
           <div className="et-header">
             <div>
-              <div className="et-title">Liste des etudiants</div>
+              <div className="et-title">Liste des étudiants</div>
               <div className="et-subtitle">
                 {role === "admin"
-                  ? "Vue globale de toutes les filieres et tous les semestres."
-                  : "Etudiants lies aux filieres et modules que vous enseignez."}
+                  ? "Vue globale de toutes les filières et tous les semestres."
+                  : "Étudiants liés aux filières et modules que vous enseignez."}
               </div>
             </div>
-            <div className="et-count">{filteredEtudiants.length} etudiants</div>
+            <div className="et-count">{filteredEtudiants.length} étudiants</div>
           </div>
 
           {error && <div className="et-error">{error}</div>}
@@ -859,7 +859,7 @@ export default function EtudiantsPage() {
                     <input value={form.nom} onChange={(event) => updateForm("nom", event.target.value)} required />
                   </div>
                   <div className="et-filter">
-                    <label>Prenom</label>
+                    <label>Prénom</label>
                     <input value={form.prenom} onChange={(event) => updateForm("prenom", event.target.value)} required />
                   </div>
                   <div className="et-filter">
@@ -881,9 +881,9 @@ export default function EtudiantsPage() {
                     <input value={form.code_massar} onChange={(event) => updateForm("code_massar", event.target.value)} required />
                   </div>
                   <div className="et-filter">
-                    <label>Filiere</label>
+                    <label>Filière</label>
                     <select value={form.filiere_id} onChange={(event) => updateForm("filiere_id", event.target.value)} required>
-                      <option value="">Choisir une filiere</option>
+                      <option value="">Choisir une filière</option>
                       {filieres.map((filiere) => (
                         <option value={filiere.id} key={filiere.id}>{filiere.nom}</option>
                       ))}
@@ -904,9 +904,9 @@ export default function EtudiantsPage() {
                 <div className="et-import-panel">
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                     <div className="et-filter">
-                      <label>Filiere de destination</label>
+                      <label>Filière de destination</label>
                       <select value={importFiliere} onChange={(event) => setImportFiliere(event.target.value)} required>
-                        <option value="">Choisir une filiere</option>
+                        <option value="">Choisir une filière</option>
                         {filieres.map((filiere) => (
                           <option value={filiere.id} key={filiere.id}>{filiere.nom}</option>
                         ))}
@@ -975,9 +975,9 @@ export default function EtudiantsPage() {
 
           <div className="et-filters" style={{ gridTemplateColumns: "1fr 1fr" }}>
             <div className="et-filter">
-              <label>Filiere</label>
+              <label>Filière</label>
               <select value={selectedFiliere} onChange={(event) => setSelectedFiliere(event.target.value)}>
-                <option value="">Toutes les filieres</option>
+                <option value="">Toutes les filières</option>
                 {filieres.map((filiere) => (
                   <option value={filiere.id} key={filiere.id}>
                     {filiere.nom}
