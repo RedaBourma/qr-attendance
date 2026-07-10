@@ -648,8 +648,11 @@ export default function SidebarLayout({
                       {storedUser.role === "admin" ? "Accès Enseignant" : "Accès Admin"}
                     </span>
                   )}
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: "#fff" }}>
-                    <path d="M17 2.1l4 4-4 4M3 22v-6h6M21 6H9a6 6 0 0 0-6 6v2M3 17.9l-4-4 4-4M21 2v6h-6M3 12h12a6 6 0 0 0 6-6V4" />
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: "#fff" }}>
+                    <path d="m17 2 4 4-4 4" />
+                    <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+                    <path d="m7 22-4-4 4-4" />
+                    <path d="M21 13v1a4 4 0 0 1-4 4H3" />
                   </svg>
                 </button>
               )}
