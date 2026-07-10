@@ -315,7 +315,6 @@ export default function StatistiquesPage() {
   const [exportType, setExportType] = useState<"all" | "present" | "absent">("all");
   const [exportSemester, setExportSemester] = useState("Tous");
   
-  const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<StudentStat | null>(null);
   
   const [selectedFiliereId, setSelectedFiliereId] = useState("");
@@ -370,21 +369,7 @@ export default function StatistiquesPage() {
     loadStats();
   }, []);
 
-  const studentResults = useMemo(() => {
-    const q = studentSearch.trim().toLowerCase();
-    if (!q) return [];
-    return students.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.email.toLowerCase().includes(q) ||
-        s.codeMassar.toLowerCase().includes(q)
-    ).slice(0, 10);
-  }, [students, studentSearch]);
 
-  const handleSelectStudent = (s: StudentStat) => {
-    setSelectedStudent(s);
-    setStudentSearch(s.name);
-  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -521,7 +506,6 @@ export default function StatistiquesPage() {
                                 setTab("export");
                                 setExportScope("student");
                                 setSelectedStudent(student);
-                                setStudentSearch(student.name);
                               }}
                             >
                               Exporter
@@ -615,7 +599,6 @@ export default function StatistiquesPage() {
                         onClick={() => {
                           setExportScope("student");
                           setSelectedStudent(null);
-                          setStudentSearch("");
                         }}
                       >
                         👤 Étudiant
@@ -636,37 +619,27 @@ export default function StatistiquesPage() {
                   </div>
 
                   {exportScope === "student" && (
-                    <div className="ext-section" style={{ position: "relative" }}>
+                    <div className="ext-section">
                       <span className="ext-label">Sélectionner l'étudiant</span>
-                      <input
-                        className="ext-input"
-                        placeholder="Saisir le nom, email ou code Massar..."
-                        value={studentSearch}
+                      <select
+                        className="ext-select"
+                        value={selectedStudent?.id || ""}
                         onChange={(e) => {
-                          setStudentSearch(e.target.value);
-                          if (selectedStudent && e.target.value !== selectedStudent.name) {
-                            setSelectedStudent(null);
-                          }
+                          const id = Number(e.target.value);
+                          const s = students.find((std) => std.id === id) || null;
+                          setSelectedStudent(s);
                         }}
-                      />
-                      {studentResults.length > 0 && !selectedStudent && (
-                        <div className="ext-search-results">
-                          {studentResults.map((s) => (
-                            <div
-                              key={s.id}
-                              className="ext-search-item"
-                              onClick={() => handleSelectStudent(s)}
-                            >
-                              <strong>{s.name}</strong> ({s.codeMassar}) — {s.filiere}
-                            </div>
+                      >
+                        <option value="">-- Choisir un étudiant --</option>
+                        {students
+                          .slice()
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} ({s.codeMassar}) — {s.filiere}
+                            </option>
                           ))}
-                        </div>
-                      )}
-                      {selectedStudent && (
-                        <div style={{ fontSize: "12px", color: "var(--green)", marginTop: "4px", fontWeight: "bold" }}>
-                          ✓ Étudiant sélectionné : {selectedStudent.name} ({selectedStudent.codeMassar})
-                        </div>
-                      )}
+                      </select>
                     </div>
                   )}
 
