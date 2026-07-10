@@ -39,6 +39,8 @@ def serialize_user(user, request=None):
         "prenom": user.prenom,
         "role": user.role,
         "profile_picture": profile_pic,
+        "is_staff": user.is_staff,
+        "has_prof_profile": hasattr(user, "enseignant_profile"),
     }
 
 @api_view(["POST"])
@@ -220,4 +222,17 @@ def password_reset_confirm_view(request):
         {"message": "Votre mot de passe a été réinitialisé avec succès."},
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["POST"])
+def switch_role_view(request):
+    user = request.user
+    if user.is_staff and hasattr(user, "enseignant_profile"):
+        if user.role == User.Role.ADMIN:
+            user.role = User.Role.ENSEIGNANT
+        elif user.role == User.Role.ENSEIGNANT:
+            user.role = User.Role.ADMIN
+        user.save(update_fields=["role"])
+        return Response({"user": serialize_user(user, request)})
+    return Response({"message": "Action non autorisée."}, status=status.HTTP_403_FORBIDDEN)
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import uniLogo from "../assets/uni_logo.png";
+import { API_BASE } from "../config";
 
 const css = `
   .sb-root {
@@ -370,6 +371,8 @@ interface StoredUser {
   prenom?: string;
   role?: string;
   profile_picture?: string | null;
+  is_staff?: boolean;
+  has_prof_profile?: boolean;
 }
 
 function getStoredUser(): StoredUser | null {
@@ -486,6 +489,33 @@ export default function SidebarLayout({
     },
   ];
 
+  const handleSwitchRole = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/me/switch-role/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access")}`,
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const localUser = JSON.parse(localStorage.getItem("user") || "{}");
+        const updatedUser = { ...localUser, ...data.user };
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        
+        if (updatedUser.role === "admin") {
+          window.location.replace("/statistiques");
+        } else {
+          window.location.replace("/seances");
+        }
+      }
+    } catch {
+      console.error("Failed to switch role");
+    }
+  };
+
   const handleNavItemClick = (item: NavItem) => {
     if (item.action === "logout" || item.label.includes("connexion")) {
       localStorage.removeItem("access");
@@ -591,6 +621,31 @@ export default function SidebarLayout({
                   ))}
                 </div>
               ))}
+
+              {storedUser?.is_staff && storedUser?.has_prof_profile && (
+                <button
+                  className="sb-item"
+                  style={{
+                    border: "1px solid rgba(3,125,167,0.2)",
+                    background: "rgba(3,125,167,0.06)",
+                    color: "var(--blue)",
+                    width: "calc(100% - 16px)",
+                    margin: "16px 8px 8px 8px",
+                    borderRadius: "8px",
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center"
+                  }}
+                  onClick={handleSwitchRole}
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: "10px", color: "var(--blue)" }}>
+                    <path d="M17 2.1l4 4-4 4M3 22v-6h6M21 6H9a6 6 0 0 0-6 6v2M3 17.9l-4-4 4-4M21 2v6h-6M3 12h12a6 6 0 0 0 6-6V4" />
+                  </svg>
+                  <span className="sb-item-label">
+                    {storedUser.role === "admin" ? "Mode Professeur" : "Mode Admin"}
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* Collapse toggle */}

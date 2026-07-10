@@ -416,3 +416,24 @@ def bulk_delete_etudiants(request):
         )
 
     return Response({"message": "Étudiants supprimés avec succès."}, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+def download_student_template(request):
+    if request.user.role != User.Role.ADMIN:
+        return Response({"message": "Accès réservé à l'admin."}, status=status.HTTP_403_FORBIDDEN)
+
+    from django.http import HttpResponse
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Template Etudiants"
+    ws.append(["Prénom", "Nom", "Code Massar", "Email"])
+    ws.column_dimensions["A"].width = 15
+    ws.column_dimensions["B"].width = 15
+    ws.column_dimensions["C"].width = 15
+    ws.column_dimensions["D"].width = 25
+
+    response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response["Content-Disposition"] = 'attachment; filename="template_etudiants.xlsx"'
+    wb.save(response)
+    return response
