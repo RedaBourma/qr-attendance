@@ -24,7 +24,7 @@ def serialize_enseignant(enseignant, request=None):
 def list_enseignants(request):
     if request.user.role != User.Role.ADMIN:
         return Response(
-            {"message": "Acces reserve a l'admin."},
+            {"message": "Accès réservé à l'admin."},
             status=status.HTTP_403_FORBIDDEN,
         )
 
@@ -37,7 +37,7 @@ def list_enseignants(request):
 def create_enseignant(request):
     if request.user.role != User.Role.ADMIN:
         return Response(
-            {"message": "Acces reserve a l'admin."},
+            {"message": "Accès réservé à l'admin."},
             status=status.HTTP_403_FORBIDDEN,
         )
 
@@ -123,7 +123,7 @@ def create_enseignant(request):
 def update_enseignant(request, enseignant_id):
     if request.user.role != User.Role.ADMIN:
         return Response(
-            {"message": "Acces reserve a l'admin."},
+            {"message": "Accès réservé à l'admin."},
             status=status.HTTP_403_FORBIDDEN,
         )
 
@@ -205,7 +205,7 @@ def update_enseignant(request, enseignant_id):
 def delete_enseignant(request, enseignant_id):
     if request.user.role != User.Role.ADMIN:
         return Response(
-            {"message": "Acces reserve a l'admin."},
+            {"message": "Accès réservé à l'admin."},
             status=status.HTTP_403_FORBIDDEN,
         )
 
@@ -223,4 +223,4 @@ def delete_enseignant(request, enseignant_id):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    return Response({"message": "Enseignant supprime avec succes."}, status=status.HTTP_200_OK)
+    return Response({"message": "Enseignant supprimé avec succès."}, status=status.HTTP_200_OK)

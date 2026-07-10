@@ -513,6 +513,8 @@ function ProfessorMesSeancesPage() {
   const [tempFiliereId, setTempFiliereId] = useState("");
   const [tempRoom, setTempRoom] = useState("");
   const [tempDuration, setTempDuration] = useState("120");
+  const [maxDistance, setMaxDistance] = useState<number>(20);
+  const [tempMaxDistance, setTempMaxDistance] = useState<string>("20");
   const weekStart = useMemo(() => getWeekStart(now), [now]);
 
   const filteredSessions = useMemo(() => {
@@ -671,6 +673,7 @@ function ProfessorMesSeancesPage() {
           filiere_id: Number(tempFiliereId),
           salle: tempRoom.trim(),
           validite_min: Number(tempDuration),
+          max_distance: Number(tempMaxDistance),
           latitude: lat,
           longitude: lng,
         }),
@@ -678,7 +681,7 @@ function ProfessorMesSeancesPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.message || "Impossible de creer la seance temporaire.");
+        setError(data.message || "Impossible de créer la séance temporaire.");
         return;
       }
 
@@ -689,6 +692,7 @@ function ProfessorMesSeancesPage() {
       setTempFiliereId("");
       setTempRoom("");
       setTempDuration("120");
+      setTempMaxDistance("20");
     } catch {
       setError("Erreur de connexion au serveur.");
     } finally {
@@ -729,6 +733,7 @@ function ProfessorMesSeancesPage() {
           validite_min: 10,
           latitude: lat,
           longitude: lng,
+          max_distance: maxDistance,
         }),
       });
       const data = await res.json();
@@ -756,8 +761,8 @@ function ProfessorMesSeancesPage() {
               <div className="sc-title">Emploi du temps hebdomadaire</div>
               <div className="sc-subtitle">
                 {loading
-                  ? "Chargement des seances..."
-                  : error || `${ownerName ? `Seances de ${ownerName}. ` : ""}Selectionne un cours puis genere son QR code.`}
+                  ? "Chargement des séances..."
+                  : error || `${ownerName ? `Séances de ${ownerName}. ` : ""}Sélectionnez un cours puis générez son QR code.`}
               </div>
             </div>
             <div className="sc-now">Maintenant: {formatNow(now)}</div>
@@ -841,7 +846,7 @@ function ProfessorMesSeancesPage() {
                           {session.filiere} | {session.room ? (/^salle\b/i.test(session.room.trim()) ? session.room : `Salle ${session.room}`) : ""}
                         </div>
                         <span className="sc-status">
-                          {active ? (session.temporary ? "Temporaire active" : "Disponible maintenant") : "Planifie"}
+                          {active ? (session.temporary ? "Temporaire active" : "Disponible maintenant") : "Planifiée"}
                         </span>
                       </button>
                     );
@@ -853,31 +858,50 @@ function ProfessorMesSeancesPage() {
 
           <div className="sc-detail">
             <div>
-              <h2>{selectedSession ? selectedSession.module : "Aucune seance selectionnee"}</h2>
+              <h2>{selectedSession ? selectedSession.module : "Aucune séance sélectionnée"}</h2>
               <p>
                 {selectedSession
-                  ? `${selectedSession.filiere} | ${selectedSession.start} - ${selectedSession.end} | ${selectedSession.room ? (/^salle\b/i.test(selectedSession.room.trim()) ? selectedSession.room : `Salle ${selectedSession.room}`) : ""}${selectedSession.temporary ? " | Seance temporaire" : ""}`
-                  : "Clique sur une seance pour la selectionner."}
+                  ? `${selectedSession.filiere} | ${selectedSession.start} - ${selectedSession.end} | ${selectedSession.room ? (/^salle\b/i.test(selectedSession.room.trim()) ? selectedSession.room : `Salle ${selectedSession.room}`) : ""}${selectedSession.temporary ? " | Séance temporaire" : ""}`
+                  : "Cliquez sur une séance pour la sélectionner."}
               </p>
+              
+              {selectedSession && isSessionSelectable(selectedSession, now) && (
+                <div style={{ marginTop: "14px", display: "flex", gap: "16px", alignItems: "center" }}>
+                  <div className="sc-field" style={{ margin: 0, minWidth: "220px" }}>
+                    <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--gray-600)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>
+                      Distance autorisée
+                    </label>
+                    <select
+                      value={maxDistance}
+                      onChange={(e) => setMaxDistance(Number(e.target.value))}
+                      style={{ padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--gray-200)", fontSize: "12px", width: "100%", height: "36px", background: "var(--white)" }}
+                    >
+                      <option value="20">20 mètres (Par défaut)</option>
+                      <option value="50">50 mètres</option>
+                      <option value="100">100 mètres</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
             <button
               className="sc-action"
               disabled={!selectedSession || !isSessionSelectable(selectedSession, now) || generating}
               onClick={handleGenerateQr}
             >
-              {generating ? "Generation..." : "Generer le QR code"}
+              {generating ? "Génération..." : "Générer le QR code"}
             </button>
           </div>
 
           <div className="sc-temp-panel">
-            <div className="sc-temp-title">Seance temporaire</div>
+            <div className="sc-temp-title">Séance temporaire</div>
             <div className="sc-temp-subtitle">
-              Pour un cours non planifie, ajoute une seance active maintenant puis genere son QR code.
+              Pour un cours non planifié, ajoutez une séance active maintenant puis générez son QR code.
             </div>
 
             <form className="sc-temp-form" onSubmit={handleCreateTemporarySession}>
               <div className="sc-field">
-                <label>Filiere</label>
+                <label>Filière</label>
                 <select
                   value={tempFiliereId}
                   onChange={(event) => {
@@ -886,7 +910,7 @@ function ProfessorMesSeancesPage() {
                   }}
                   required
                 >
-                  <option value="">Choisir une filiere</option>
+                  <option value="">Choisir une filière</option>
                   {filieres.map((filiere) => (
                     <option key={filiere.id} value={filiere.id}>
                       {filiere.nom}
@@ -907,8 +931,8 @@ function ProfessorMesSeancesPage() {
                     {tempFiliereId
                       ? availableModules.length > 0
                         ? "Choisir un module"
-                        : "Aucun module dans cette filiere"
-                      : "Choisir une filiere d'abord"}
+                        : "Aucun module dans cette filière"
+                      : "Choisir une filière d'abord"}
                   </option>
                   {availableModules.map((module) => (
                     <option key={module.id} value={module.id}>
@@ -929,7 +953,7 @@ function ProfessorMesSeancesPage() {
               </div>
 
               <div className="sc-field">
-                <label>Duree</label>
+                <label>Durée</label>
                 <select value={tempDuration} onChange={(event) => setTempDuration(event.target.value)}>
                   <option value="60">1h</option>
                   <option value="120">2h</option>
@@ -937,9 +961,18 @@ function ProfessorMesSeancesPage() {
                 </select>
               </div>
 
+              <div className="sc-field">
+                <label>Distance autorisée</label>
+                <select value={tempMaxDistance} onChange={(event) => setTempMaxDistance(event.target.value)}>
+                  <option value="20">20 mètres (Par défaut)</option>
+                  <option value="50">50 mètres</option>
+                  <option value="100">100 mètres</option>
+                </select>
+              </div>
+
               <div className="sc-temp-actions">
                 <button className="sc-action" type="submit" disabled={creatingTemp}>
-                  {creatingTemp ? "Creation..." : "Ajouter et selectionner"}
+                  {creatingTemp ? "Création..." : "Ajouter et sélectionner"}
                 </button>
               </div>
             </form>

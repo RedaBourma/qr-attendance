@@ -132,11 +132,12 @@ def serialize_temporary_seance(seance):
         "filiere": f"{seance.module.filiere.nom} {seance.module.semestre}".strip(),
         "filiereId": seance.module.filiere_id,
         "semestre": seance.module.semestre,
-        "room": seance.salle or "Non precisee",
+        "room": seance.salle or "Non précisee",
         "enseignant": str(seance.enseignant),
         "temporary": True,
         "heure_debut_iso": seance.heure_debut.isoformat(),
         "heure_fin_iso": seance.heure_fin.isoformat(),
+        "maxDistance": seance.max_distance,
     }
 
 
@@ -165,7 +166,7 @@ def get_teaching_scope(request):
 def list_seances(request):
     if request.user.role not in [User.Role.ADMIN, User.Role.ENSEIGNANT]:
         return Response(
-            {"message": "Acces non autorise."},
+            {"message": "Accès non autorisé."},
             status=status.HTTP_403_FORBIDDEN,
         )
 
@@ -207,7 +208,7 @@ def list_seances(request):
 @api_view(["GET"])
 def teaching_filters(request):
     if request.user.role not in [User.Role.ADMIN, User.Role.ENSEIGNANT]:
-        return Response({"message": "Acces non autorise."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès non autorisé."}, status=status.HTTP_403_FORBIDDEN)
 
     filieres = Filiere.objects.all().order_by("nom")
     modules = Module.objects.select_related("filiere").all()
@@ -239,7 +240,7 @@ def teaching_filters(request):
 @api_view(["POST"])
 def create_temporary_seance(request):
     if request.user.role != User.Role.ENSEIGNANT:
-        return Response({"message": "Seul un enseignant peut creer une seance temporaire."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Seul un enseignant peut créer une séance temporaire."}, status=status.HTTP_403_FORBIDDEN)
 
     try:
         enseignant = request.user.enseignant_profile
@@ -248,23 +249,24 @@ def create_temporary_seance(request):
 
     module_id = request.data.get("module_id")
     filiere_id = request.data.get("filiere_id")
-    salle = (request.data.get("salle") or "").strip() or "Non precisee"
+    salle = (request.data.get("salle") or "").strip() or "Non précisée"
     validite_min = int(request.data.get("validite_min") or 120)
+    max_distance = int(request.data.get("max_distance") or 20)
 
     if not module_id:
         return Response({"message": "Le module est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
 
     if not filiere_id:
-        return Response({"message": "La filiere est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "La filière est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
 
     filiere = Filiere.objects.filter(id=filiere_id).first()
     if not filiere:
-        return Response({"message": "Filiere introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Filière introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     module = Module.objects.select_related("filiere").filter(id=module_id, filiere=filiere).first()
     if not module:
         return Response(
-            {"message": "Module introuvable pour cette filiere."},
+            {"message": "Module introuvable pour cette filière."},
             status=status.HTTP_404_NOT_FOUND,
         )
 
@@ -279,11 +281,12 @@ def create_temporary_seance(request):
         heure_debut=now,
         heure_fin=end_dt,
         validite_min=validite_min,
+        max_distance=max_distance,
     )
 
     return Response(
         {
-            "message": "Seance temporaire creee.",
+            "message": "Séance temporaire créée.",
             "seance": serialize_temporary_seance(seance),
         },
         status=status.HTTP_201_CREATED,
@@ -293,7 +296,7 @@ def create_temporary_seance(request):
 @api_view(["GET"])
 def academic_management(request):
     if request.user.role != User.Role.ADMIN:
-        return Response({"message": "Acces reserve a l'admin."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès réservé à l'admin."}, status=status.HTTP_403_FORBIDDEN)
 
     filieres = Filiere.objects.all().order_by("nom")
     modules = Module.objects.select_related("filiere").all().order_by("filiere__nom", "semestre", "nom")
@@ -321,17 +324,17 @@ def academic_management(request):
 @api_view(["POST"])
 def create_academic_filiere(request):
     if request.user.role != User.Role.ADMIN:
-        return Response({"message": "Acces reserve a l'admin."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès réservé à l'admin."}, status=status.HTTP_403_FORBIDDEN)
 
     nom = (request.data.get("nom") or "").strip()
     semesters = request.data.get("semesters") or []
     if not nom:
-        return Response({"message": "Le nom de la filiere est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "Le nom de la filière est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         filiere = Filiere.objects.create(nom=nom, semesters=semesters)
     except IntegrityError:
-        return Response({"message": "Cette filiere existe deja."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "Cette filière existe déjà."}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(serialize_filiere(filiere), status=status.HTTP_201_CREATED)
 
@@ -339,11 +342,11 @@ def create_academic_filiere(request):
 @api_view(["POST"])
 def update_academic_filiere(request, filiere_id):
     if request.user.role != User.Role.ADMIN:
-        return Response({"message": "Acces reserve a l'admin."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès réservé à l'admin."}, status=status.HTTP_403_FORBIDDEN)
 
     filiere = Filiere.objects.filter(id=filiere_id).first()
     if not filiere:
-        return Response({"message": "Filiere introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Filière introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     nom = (request.data.get("nom") or "").strip()
     semesters = request.data.get("semesters") or []
@@ -355,7 +358,7 @@ def update_academic_filiere(request, filiere_id):
     try:
         filiere.save()
     except IntegrityError:
-        return Response({"message": "Cette filiere existe deja."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "Cette filière existe déjà."}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(serialize_filiere(filiere))
 
@@ -363,11 +366,11 @@ def update_academic_filiere(request, filiere_id):
 @api_view(["DELETE", "POST"])
 def delete_academic_filiere(request, filiere_id):
     if request.user.role != User.Role.ADMIN:
-        return Response({"message": "Acces reserve a l'admin."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès réservé à l'admin."}, status=status.HTTP_403_FORBIDDEN)
 
     filiere = Filiere.objects.filter(id=filiere_id).first()
     if not filiere:
-        return Response({"message": "Filiere introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Filière introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     try:
         filiere.delete()
@@ -383,7 +386,7 @@ def delete_academic_filiere(request, filiere_id):
 @api_view(["POST", "PATCH"])
 def update_academic_module(request, module_id):
     if request.user.role != User.Role.ADMIN:
-        return Response({"message": "Acces reserve a l'admin."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès réservé à l'admin."}, status=status.HTTP_403_FORBIDDEN)
 
     module = Module.objects.filter(id=module_id).select_related("filiere").first()
     if not module:
@@ -396,13 +399,13 @@ def update_academic_module(request, module_id):
         module.nom = nom
     if semestre:
         if semestre not in (module.filiere.semesters or []):
-            return Response({"message": "Ce semestre ne correspond pas a la filiere."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Ce semestre ne correspond pas à la filière."}, status=status.HTTP_400_BAD_REQUEST)
         module.semestre = semestre
 
     try:
         module.save()
     except IntegrityError:
-        return Response({"message": "Ce module existe deja pour cette filiere et ce semestre."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "Ce module existe déjà pour cette filière et ce semestre."}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(serialize_module(module))
 
@@ -410,7 +413,7 @@ def update_academic_module(request, module_id):
 @api_view(["DELETE", "POST"])
 def delete_academic_module(request, module_id):
     if request.user.role != User.Role.ADMIN:
-        return Response({"message": "Acces reserve a l'admin."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès réservé à l'admin."}, status=status.HTTP_403_FORBIDDEN)
 
     module = Module.objects.filter(id=module_id).first()
     if not module:
@@ -430,18 +433,18 @@ def delete_academic_module(request, module_id):
 @api_view(["POST"])
 def create_academic_module(request):
     if request.user.role != User.Role.ADMIN:
-        return Response({"message": "Acces reserve a l'admin."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès réservé à l'admin."}, status=status.HTTP_403_FORBIDDEN)
 
     nom = (request.data.get("nom") or "").strip()
     filiere_id = request.data.get("filiere_id")
     semestre = (request.data.get("semestre") or "").strip()
 
     if not all([nom, filiere_id, semestre]):
-        return Response({"message": "Nom, filiere et semestre sont obligatoires."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "Nom, filière et semestre sont obligatoires."}, status=status.HTTP_400_BAD_REQUEST)
 
     filiere = Filiere.objects.filter(id=filiere_id).first()
     if not filiere:
-        return Response({"message": "Filiere introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Filière introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     if semestre not in (filiere.semesters or []):
         return Response({"message": "Ce semestre ne correspond pas a la filiere."}, status=status.HTTP_400_BAD_REQUEST)
@@ -449,7 +452,7 @@ def create_academic_module(request):
     try:
         module = Module.objects.create(nom=nom, filiere=filiere, semestre=semestre)
     except IntegrityError:
-        return Response({"message": "Ce module existe deja pour cette filiere et ce semestre."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "Ce module existe déjà pour cette filière et ce semestre."}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(serialize_module(module), status=status.HTTP_201_CREATED)
 
@@ -457,7 +460,7 @@ def create_academic_module(request):
 @api_view(["POST"])
 def create_academic_cours(request):
     if request.user.role != User.Role.ADMIN:
-        return Response({"message": "Acces reserve a l'admin."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès réservé à l'admin."}, status=status.HTTP_403_FORBIDDEN)
 
     module_id = request.data.get("module_id")
     enseignant_id = request.data.get("enseignant_id")
@@ -657,11 +660,11 @@ def update_academic_cours(request, cours_id):
 @api_view(["POST"])
 def delete_academic_cours(request, cours_id):
     if request.user.role != User.Role.ADMIN:
-        return Response({"message": "Acces reserve a l'admin."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès réservé à l'admin."}, status=status.HTTP_403_FORBIDDEN)
 
     cours = Cours.objects.filter(id=cours_id).first()
     if not cours:
         return Response({"message": "Cours introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     cours.delete()
-    return Response({"message": "Cours supprime avec succes."})
+    return Response({"message": "Cours supprimé avec succès."})

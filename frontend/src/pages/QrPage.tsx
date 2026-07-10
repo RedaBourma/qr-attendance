@@ -38,6 +38,7 @@ interface QRSession {
   missed: StudentEntry[];
   isStillGoing: boolean;
   coursId?: number | null;
+  maxDistance?: number;
 }
 
 function authHeaders() {
@@ -665,6 +666,7 @@ export default function QRSessionDashboard() {
   const [nowTick, setNowTick] = useState(0);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [restartMaxDistance, setRestartMaxDistance] = useState<number>(20);
 
   const isEnseignant = useMemo(() => {
     const rawUser = localStorage.getItem("user");
@@ -743,7 +745,7 @@ export default function QRSessionDashboard() {
     if (res.ok) {
       setSession(data.seance);
     } else {
-      setError(data.message || "Impossible de terminer la seance.");
+      setError(data.message || "Impossible de terminer la séance.");
     }
   };
 
@@ -790,11 +792,12 @@ export default function QRSessionDashboard() {
           latitude: lat,
           longitude: lng,
           force: true,
+          max_distance: restartMaxDistance,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Impossible de relancer la seance.");
+        setError(data.message || "Impossible de relancer la séance.");
         return;
       }
       setSession(data.seance);
@@ -819,9 +822,9 @@ export default function QRSessionDashboard() {
             <div className="qrd-panel qrd-locked">
               <h2>QR code non disponible</h2>
               <p>
-                Cette page reste fermee tant qu'un enseignant n'a pas genere un QR code depuis une seance active dans Mes seances.
+                Cette page reste fermée tant qu'un enseignant n'a pas généré un QR code depuis une séance active dans Mes séances.
               </p>
-              <button className="qrd-btn primary" onClick={() => navigate("/seances")}>Aller a Mes seances</button>
+              <button className="qrd-btn primary" onClick={() => navigate("/seances")}>Aller à Mes séances</button>
             </div>
           ) : (
             <>
@@ -836,6 +839,9 @@ export default function QRSessionDashboard() {
                     <span className="qrd-badge orange">
                       {session.room ? (/^salle\b/i.test(session.room.trim()) ? session.room : `Salle ${session.room}`) : ""}
                     </span>
+                    {session.maxDistance && (
+                      <span className="qrd-badge green">Limite : {session.maxDistance}m</span>
+                    )}
                   </div>
                 </div>
                 <div className={`qrd-status-indicator ${session.running ? "active" : "ended"}`}>
@@ -898,28 +904,44 @@ export default function QRSessionDashboard() {
                   </div>
 
                   {(!session.running && session.isStillGoing && isEnseignant) && (
-                    <button 
-                      className="qrd-btn primary" 
-                      onClick={restartSession}
-                      style={{ width: "100%", marginBottom: "16px" }}
-                      disabled={restarting}
-                    >
-                      {restarting ? (
-                        <>
-                          <span className="spinner"></span>
-                          Relancement...
-                        </>
-                      ) : (
-                        <>
-                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
-                            <path d="M23 4v6h-6"/>
-                            <path d="M1 20v-6h6"/>
-                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-                          </svg>
-                          Relancer la séance QR
-                        </>
-                      )}
-                    </button>
+                    <>
+                      <div style={{ marginBottom: "12px", textAlign: "left" }}>
+                        <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--gray-600)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>
+                          Distance autorisée pour la séance relancée
+                        </label>
+                        <select
+                          value={restartMaxDistance}
+                          onChange={(e) => setRestartMaxDistance(Number(e.target.value))}
+                          style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--gray-200)", fontSize: "13px", width: "100%", height: "38px", background: "var(--white)", marginBottom: "10px" }}
+                        >
+                          <option value="20">20 mètres (Par défaut)</option>
+                          <option value="50">50 mètres</option>
+                          <option value="100">100 mètres</option>
+                        </select>
+                      </div>
+                      <button 
+                        className="qrd-btn primary" 
+                        onClick={restartSession}
+                        style={{ width: "100%", marginBottom: "16px" }}
+                        disabled={restarting}
+                      >
+                        {restarting ? (
+                          <>
+                            <span className="spinner"></span>
+                            Relancement...
+                          </>
+                        ) : (
+                          <>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
+                              <path d="M23 4v6h-6"/>
+                              <path d="M1 20v-6h6"/>
+                              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                            </svg>
+                            Relancer la séance QR
+                          </>
+                        )}
+                      </button>
+                    </>
                   )}
 
                   {/* Toggle link for advanced actions */}

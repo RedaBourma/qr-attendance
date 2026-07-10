@@ -474,8 +474,8 @@ export default function ScanPage() {
       <style>{css}</style>
       <div className="scan-root">
         <header className="scan-header">
-          <h1>Presence en cours</h1>
-          <p>Scannez et validez votre presence pour cette seance.</p>
+          <h1>Présence en cours</h1>
+          <p>Scannez et validez votre présence pour cette séance.</p>
           <div className="scan-meta">
             {display.filiere && <span className="scan-chip">{display.filiere} {display.niveau} {display.semestre}</span>}
             {display.module && <span className="scan-chip">{display.module}</span>}
@@ -491,14 +491,14 @@ export default function ScanPage() {
 
         <main className="scan-body">
           {loading ? (
-            <div className="scan-loading">Chargement de la seance...</div>
+            <div className="scan-loading">Chargement de la séance...</div>
           ) : (
             <section className="scan-card">
               <h2>Vos informations</h2>
               {!session && !message ? (
-                <p className="scan-ended">Verification du QR code...</p>
+                <p className="scan-ended">Vérification du QR code...</p>
               ) : session && !session.running ? (
-                <p className="scan-ended">Cette seance est terminee. La validation n'est plus possible.</p>
+                <p className="scan-ended">Cette séance est terminée. La validation n'est plus possible.</p>
               ) : (
                 <form className="scan-form" onSubmit={submit}>
                   {/* Localisation status */}
@@ -607,7 +607,7 @@ export default function ScanPage() {
                     />
                   </div>
                   <button className="scan-btn" type="submit" disabled={!session?.running || submitting || !coords}>
-                    {submitting ? "Validation..." : "Valider ma presence"}
+                    {submitting ? "Validation..." : "Valider ma présence"}
                   </button>
                 </form>
               )}
