@@ -626,24 +626,29 @@ export default function SidebarLayout({
                 <button
                   className="sb-item"
                   style={{
-                    border: "1px solid rgba(3,125,167,0.2)",
-                    background: "rgba(3,125,167,0.06)",
-                    color: "var(--blue)",
-                    width: "calc(100% - 16px)",
-                    margin: "16px 8px 8px 8px",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    background: "rgba(255, 255, 255, 0.06)",
+                    color: "#fff",
+                    width: collapsed ? "38px" : "calc(100% - 16px)",
+                    height: "38px",
+                    margin: collapsed ? "16px auto 8px" : "16px 8px 8px 8px",
                     borderRadius: "8px",
                     fontWeight: "bold",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "10px 14px"
+                    justifyContent: collapsed ? "center" : "space-between",
+                    padding: collapsed ? "0" : "10px 14px",
+                    transition: "all 0.2s ease"
                   }}
                   onClick={handleSwitchRole}
+                  title={storedUser.role === "admin" ? "Accès Enseignant" : "Accès Admin"}
                 >
-                  <span className="sb-item-label" style={{ marginLeft: 0 }}>
-                    {storedUser.role === "admin" ? "Accès Enseignant" : "Accès Admin"}
-                  </span>
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: "var(--blue)" }}>
+                  {!collapsed && (
+                    <span className="sb-item-label" style={{ marginLeft: 0 }}>
+                      {storedUser.role === "admin" ? "Accès Enseignant" : "Accès Admin"}
+                    </span>
+                  )}
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: "#fff" }}>
                     <path d="M17 2.1l4 4-4 4M3 22v-6h6M21 6H9a6 6 0 0 0-6 6v2M3 17.9l-4-4 4-4M21 2v6h-6M3 12h12a6 6 0 0 0 6-6V4" />
                   </svg>
                 </button>
