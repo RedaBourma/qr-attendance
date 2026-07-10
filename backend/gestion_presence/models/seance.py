@@ -10,6 +10,7 @@ class Seance(models.Model):
     est_ouverte = models.BooleanField(default=False)
     token_qr = models.CharField(max_length=255, blank=True)
     validite_min = models.PositiveIntegerField(default=15)
+    max_distance = models.PositiveIntegerField(default=20)
     cours = models.ForeignKey(
         Cours,
         on_delete=models.CASCADE,

@@ -120,7 +120,7 @@ def list_etudiants(request):
 def create_etudiant(request):
     if request.user.role != User.Role.ADMIN:
         return Response(
-            {"message": "Acces reserve a l'admin."},
+            {"message": "Accès réservé à l'admin."},
             status=status.HTTP_403_FORBIDDEN,
         )
 
@@ -133,7 +133,7 @@ def create_etudiant(request):
 
     if not all([nom, prenom, code_massar, filiere_id]):
         return Response(
-            {"message": "nom, prenom, code_massar et filiere sont requis."},
+            {"message": "Nom, prénom, code Massar et filière sont requis."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -151,7 +151,7 @@ def create_etudiant(request):
 
     filiere = Filiere.objects.filter(id=filiere_id).first()
     if not filiere:
-        return Response({"message": "Filiere introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Filière introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     try:
         with transaction.atomic():
@@ -169,7 +169,7 @@ def create_etudiant(request):
             )
     except IntegrityError:
         return Response(
-            {"message": "Un utilisateur avec cet email ou ce code Massar existe deja."},
+            {"message": "Un utilisateur avec cet email ou ce code Massar existe déjà."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -184,17 +184,17 @@ def create_etudiant(request):
 def import_etudiants(request):
     if request.user.role != User.Role.ADMIN:
         return Response(
-            {"message": "Acces reserve a l'admin."},
+            {"message": "Accès réservé à l'admin."},
             status=status.HTTP_403_FORBIDDEN,
         )
 
     filiere_id = request.data.get("filiere_id")
     if not filiere_id:
-        return Response({"message": "La filiere est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "La filière est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
 
     filiere = Filiere.objects.filter(id=filiere_id).first()
     if not filiere:
-        return Response({"message": "Filiere introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Filière introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     uploaded_file = request.FILES.get("file")
     if not uploaded_file:
@@ -311,13 +311,13 @@ def import_etudiants(request):
 def update_etudiant(request, etudiant_id):
     if request.user.role != User.Role.ADMIN:
         return Response(
-            {"message": "Acces reserve a l'admin."},
+            {"message": "Accès réservé à l'admin."},
             status=status.HTTP_403_FORBIDDEN,
         )
 
     etudiant = Etudiant.objects.filter(id=etudiant_id).select_related("user").first()
     if not etudiant:
-        return Response({"message": "Etudiant introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Étudiant introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     nom = (request.data.get("nom") or "").strip()
     prenom = (request.data.get("prenom") or "").strip()
@@ -328,13 +328,13 @@ def update_etudiant(request, etudiant_id):
 
     if not all([nom, prenom, code_massar, filiere_id]):
         return Response(
-            {"message": "nom, prenom, code_massar et filiere sont requis."},
+            {"message": "Nom, prénom, code Massar et filière sont requis."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
     filiere = Filiere.objects.filter(id=filiere_id).first()
     if not filiere:
-        return Response({"message": "Filiere introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Filière introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     try:
         with transaction.atomic():
@@ -352,7 +352,7 @@ def update_etudiant(request, etudiant_id):
             etudiant.save()
     except IntegrityError:
         return Response(
-            {"message": "Un utilisateur avec cet email ou ce code Massar existe deja."},
+            {"message": "Un utilisateur avec cet email ou ce code Massar existe déjà."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -367,13 +367,13 @@ def update_etudiant(request, etudiant_id):
 def delete_etudiant(request, etudiant_id):
     if request.user.role != User.Role.ADMIN:
         return Response(
-            {"message": "Acces reserve a l'admin."},
+            {"message": "Accès réservé à l'admin."},
             status=status.HTTP_403_FORBIDDEN,
         )
 
     etudiant = Etudiant.objects.filter(id=etudiant_id).select_related("user").first()
     if not etudiant:
-        return Response({"message": "Etudiant introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Étudiant introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     try:
         with transaction.atomic():
@@ -385,21 +385,21 @@ def delete_etudiant(request, etudiant_id):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    return Response({"message": "Etudiant supprime avec succes."}, status=status.HTTP_200_OK)
+    return Response({"message": "Étudiant supprimé avec succès."}, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
 def bulk_delete_etudiants(request):
     if request.user.role != User.Role.ADMIN:
         return Response(
-            {"message": "Acces reserve a l'admin."},
+            {"message": "Accès réservé à l'admin."},
             status=status.HTTP_403_FORBIDDEN,
         )
 
     ids = request.data.get("ids", [])
     if not ids:
         return Response(
-            {"message": "Aucun etudiant selectionne."},
+            {"message": "Aucun étudiant sélectionné."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -415,4 +415,4 @@ def bulk_delete_etudiants(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    return Response({"message": "Etudiants supprimes avec succes."}, status=status.HTTP_200_OK)
+    return Response({"message": "Étudiants supprimés avec succès."}, status=status.HTTP_200_OK)

@@ -14,6 +14,7 @@ class TemporarySeance(models.Model):
     token_qr = models.CharField(max_length=255, blank=True, null=True, unique=True)
     qr_expiration = models.DateTimeField(blank=True, null=True)
     validite_min = models.PositiveIntegerField(default=120)
+    max_distance = models.PositiveIntegerField(default=20)
     salle = models.CharField(max_length=50, blank=True)
     module = models.ForeignKey(
         Module,

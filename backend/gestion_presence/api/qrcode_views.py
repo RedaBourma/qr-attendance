@@ -159,13 +159,13 @@ def serialize_qr_session(seance):
             f"{timezone.localtime(seance.heure_debut).strftime('%H:%M')} - "
             f"{timezone.localtime(seance.heure_fin).strftime('%H:%M')}"
         )
-        room = seance.salle or "Non precisee"
+        room = seance.salle or "Non précisée"
         public_id = temporary_public_id(seance)
     else:
         payload = build_qr_payload(seance, token, frontend_base) if qr else None
         starts_at = seance.heure_debut
         course_label = f"{cours.heure_debut.strftime('%H:%M')} - {cours.heure_fin.strftime('%H:%M')}"
-        room = cours.salle or "Non precisee"
+        room = cours.salle or "Non précisée"
         public_id = str(seance.id)
 
     now_local = timezone.localtime()
@@ -201,10 +201,11 @@ def serialize_qr_session(seance):
         "missed": missed,
         "isStillGoing": is_still_going,
         "coursId": cours.id if cours else None,
+        "maxDistance": seance.max_distance,
     }
 
 
-def create_or_refresh_temporary_qr(seance, validite_min, latitude=None, longitude=None):
+def create_or_refresh_temporary_qr(seance, validite_min, latitude=None, longitude=None, max_distance=None):
     token = f"QRP-{secrets.token_urlsafe(24)}"
     expiration = timezone.now() + timedelta(minutes=validite_min)
     seance.est_ouverte = True
@@ -212,12 +213,14 @@ def create_or_refresh_temporary_qr(seance, validite_min, latitude=None, longitud
     seance.qr_expiration = expiration
     seance.latitude = latitude
     seance.longitude = longitude
-    seance.save(update_fields=["est_ouverte", "token_qr", "qr_expiration", "latitude", "longitude"])
+    if max_distance is not None:
+        seance.max_distance = max_distance
+    seance.save(update_fields=["est_ouverte", "token_qr", "qr_expiration", "latitude", "longitude", "max_distance"])
     seance.refresh_from_db()
     return seance
 
 
-def create_or_refresh_qr(seance, validite_min, latitude=None, longitude=None):
+def create_or_refresh_qr(seance, validite_min, latitude=None, longitude=None, max_distance=None):
     token = f"QRP-{secrets.token_urlsafe(24)}"
     expiration = timezone.now() + timedelta(minutes=validite_min)
     frontend_base = get_frontend_base_url()
@@ -226,7 +229,9 @@ def create_or_refresh_qr(seance, validite_min, latitude=None, longitude=None):
     seance.est_ouverte = True
     seance.token_qr = token
     seance.validite_min = validite_min
-    seance.save(update_fields=["est_ouverte", "token_qr", "validite_min"])
+    if max_distance is not None:
+        seance.max_distance = max_distance
+    seance.save(update_fields=["est_ouverte", "token_qr", "validite_min", "max_distance"])
 
     QRCode.objects.update_or_create(
         seance=seance,
@@ -246,12 +251,13 @@ def create_or_refresh_qr(seance, validite_min, latitude=None, longitude=None):
 @api_view(["POST"])
 def generate_qr_for_cours(request):
     if request.user.role != User.Role.ENSEIGNANT:
-        return Response({"message": "Seul un enseignant peut generer un QR code."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Seul un enseignant peut générer un QR code."}, status=status.HTTP_403_FORBIDDEN)
 
     cours_id = request.data.get("cours_id")
     validite_min = QR_VALIDITY_MINUTES
     latitude = request.data.get("latitude")
     longitude = request.data.get("longitude")
+    max_distance = int(request.data.get("max_distance") or 20)
 
     try:
         enseignant = request.user.enseignant_profile
@@ -267,12 +273,12 @@ def generate_qr_for_cours(request):
         ).first()
 
         if not seance:
-            return Response({"message": "Seance temporaire introuvable ou terminee."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Séance temporaire introuvable ou terminée."}, status=status.HTTP_404_NOT_FOUND)
 
         if seance.token_qr and timezone.now() < seance.expiration and seance.est_ouverte and not request.data.get("force"):
             return Response({"seance": serialize_qr_session(seance)})
 
-        create_or_refresh_temporary_qr(seance, validite_min, latitude=latitude, longitude=longitude)
+        create_or_refresh_temporary_qr(seance, validite_min, latitude=latitude, longitude=longitude, max_distance=max_distance)
         return Response({"seance": serialize_qr_session(seance)}, status=status.HTTP_201_CREATED)
 
     cours = Cours.objects.select_related("module", "module__filiere").filter(
@@ -282,7 +288,7 @@ def generate_qr_for_cours(request):
     ).first()
 
     if not cours:
-        return Response({"message": "Cours introuvable ou non autorise."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Cours introuvable ou non autorisé."}, status=status.HTTP_404_NOT_FOUND)
 
     now_local = timezone.localtime()
     if now_local.time() > cours.heure_fin:
@@ -299,6 +305,7 @@ def generate_qr_for_cours(request):
             "heure_debut": heure_debut,
             "validite_min": validite_min,
             "est_ouverte": True,
+            "max_distance": max_distance,
         },
     )
 
@@ -308,9 +315,10 @@ def generate_qr_for_cours(request):
 
     if not created:
         seance.heure_debut = heure_debut
-        seance.save(update_fields=["heure_debut"])
+        seance.max_distance = max_distance
+        seance.save(update_fields=["heure_debut", "max_distance"])
 
-    create_or_refresh_qr(seance, validite_min, latitude=latitude, longitude=longitude)
+    create_or_refresh_qr(seance, validite_min, latitude=latitude, longitude=longitude, max_distance=max_distance)
 
     return Response({"seance": serialize_qr_session(seance)}, status=status.HTTP_201_CREATED)
 
@@ -318,7 +326,7 @@ def generate_qr_for_cours(request):
 @api_view(["GET"])
 def current_qr_session(request):
     if request.user.role not in [User.Role.ADMIN, User.Role.ENSEIGNANT]:
-        return Response({"message": "Acces non autorise."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès non autorisé."}, status=status.HTTP_403_FORBIDDEN)
 
     delete_expired_temporary_seances()
     qs = (
@@ -377,10 +385,10 @@ def qr_session_detail(request, seance_id):
         )
 
     if not seance:
-        return Response({"message": "Seance introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Séance introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     if not can_access_seance(request.user, seance):
-        return Response({"message": "Acces non autorise."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès non autorisé."}, status=status.HTTP_403_FORBIDDEN)
 
     return Response({"seance": serialize_qr_session(seance)})
 
@@ -395,10 +403,10 @@ def close_qr_session(request, seance_id):
         seance = Seance.objects.select_related("cours", "cours__module", "cours__module__filiere", "qrcode").filter(id=seance_id).first()
 
     if not seance:
-        return Response({"message": "Seance introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Séance introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     if not can_access_seance(request.user, seance):
-        return Response({"message": "Acces non autorise."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès non autorisé."}, status=status.HTTP_403_FORBIDDEN)
 
     seance.est_ouverte = False
     seance.save(update_fields=["est_ouverte"])
@@ -421,10 +429,10 @@ def export_qr_session(request, seance_id):
         seance = Seance.objects.select_related("cours", "cours__module", "cours__module__filiere", "qrcode").filter(id=seance_id).first()
 
     if not seance:
-        return Response({"message": "Seance introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Séance introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     if not can_access_seance(request.user, seance):
-        return Response({"message": "Acces non autorise."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Accès non autorisé."}, status=status.HTTP_403_FORBIDDEN)
 
     export_type = request.query_params.get("type", "all")
     data = serialize_qr_session(seance)
@@ -648,7 +656,7 @@ def submit_qr_scan(request, token):
     is_temp = temp_seance is not None
 
     if (seance.est_expiree if is_temp else qr.est_expire) or not seance.est_ouverte:
-        return Response({"message": "Cette seance est terminee."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "Cette séance est terminée."}, status=status.HTTP_400_BAD_REQUEST)
     code_massar = (request.data.get("code_massar") or "").strip()
     submitted_name = (request.data.get("name") or "").strip()
     if not submitted_name:
@@ -684,18 +692,18 @@ def submit_qr_scan(request, token):
             )
 
         distance = calculate_distance(teacher_lat, teacher_lng, student_lat, student_lng)
-        MAX_DISTANCE_METERS = 50.0  # 50 meters geofencing limit
+        max_distance = seance.max_distance
 
-        if distance > MAX_DISTANCE_METERS:
+        if distance > max_distance:
             return Response(
-                {"message": f"Vous devez être présent dans la salle de classe pour valider votre présence (vous êtes trop éloigné de l'enseignant : {distance:.1f}m, limite : {MAX_DISTANCE_METERS}m)."},
+                {"message": f"Vous devez être présent dans la salle de classe pour valider votre présence (vous êtes trop éloigné de l'enseignant : {distance:.1f}m, limite : {max_distance}m)."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
     etudiant = Etudiant.objects.select_related("user", "filiere").filter(code_massar__iexact=code_massar).first()
 
     if not etudiant:
-        return Response({"message": "Etudiant introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Étudiant introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
     if not name_matches_student(submitted_name, etudiant):
         return Response({"message": "Le nom ne correspond pas au code Massar."}, status=status.HTTP_403_FORBIDDEN)
@@ -703,7 +711,7 @@ def submit_qr_scan(request, token):
     module = seance.module if is_temp else seance.cours.module
     if etudiant.filiere_id != module.filiere_id:
         return Response(
-            {"message": "Cet etudiant n'appartient pas a cette filiere."},
+            {"message": "Cet étudiant n'appartient pas à cette filière."},
             status=status.HTTP_403_FORBIDDEN,
         )
 

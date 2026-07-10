@@ -396,7 +396,7 @@ function formatRole(role?: string) {
   }
 
   if (role === "etudiant") {
-    return "Etudiant";
+    return "Étudiant";
   }
 
   return "Utilisateur";
@@ -461,7 +461,7 @@ export default function SidebarLayout({
         ...(isAdmin ? [{ label: "Statistiques", icon: <StatsIcon />, active: activePage === "statistiques", path: "/statistiques" }] : []),
         ...(!isAdmin ? [{ label: "Tableau de bord", icon: <StatsIcon />, active: activePage === "dashboard", path: "/dashboard" }] : []),
         {
-          label: isAdmin ? "Gestion emploi" : "Mes seances",
+          label: isAdmin ? "Gestion d'emploi" : "Mes séances",
           icon: <SeanceIcon />,
           active: isAdmin ? activePage === "academic" : activePage === "seances",
           path: isAdmin ? "/gestion-academique" : "/seances",
@@ -472,7 +472,7 @@ export default function SidebarLayout({
     {
       section: "GESTION",
       items: [
-        { label: "Etudiants", icon: <StudentsIcon />, active: activePage === "etudiants", path: "/etudiants" },
+        { label: "Étudiants", icon: <StudentsIcon />, active: activePage === "etudiants", path: "/etudiants" },
         ...(isAdmin ? [{ label: "Enseignants", icon: <StudentsIcon />, active: activePage === "enseignants", path: "/enseignants" }] : []),
         ...(isAdmin ? [{ label: "Filières & Modules", icon: <BookIcon />, active: activePage === "filieres-modules", path: "/filieres-modules" }] : []),
       ],
@@ -480,8 +480,8 @@ export default function SidebarLayout({
     {
       section: "COMPTE",
       items: [
-        { label: "Parametres", icon: <SettingsIcon />, active: activePage === "parametres", path: "/parametres" },
-        { label: "Deconnexion", icon: <LogoutIcon /> },
+        { label: "Paramètres", icon: <SettingsIcon />, active: activePage === "parametres", path: "/parametres" },
+        { label: "Déconnexion", icon: <LogoutIcon /> },
       ],
     },
   ];
