@@ -295,3 +295,579 @@ def dashboard_view(request):
             "seances": serialized_all[:20],
         }
     )
+
+
+@api_view(["GET"])
+def custom_export_view(request):
+    import io
+    import os
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.drawing.image import Image
+    from django.http import HttpResponse
+    from django.utils import timezone
+    from datetime import datetime
+    from django.db.models import Count
+
+    user = request.user
+    if user.role != User.Role.ADMIN:
+        return Response({"message": "Accès non autorisé."}, status=status.HTTP_403_FORBIDDEN)
+
+    scope = request.query_params.get("scope")
+    export_type = request.query_params.get("type", "all")
+    semestre_filter = request.query_params.get("semestre")
+    if semestre_filter == "Tous":
+        semestre_filter = None
+
+    def apply_common_styles(ws, title, subtitle_text):
+        ws.views.sheetView[0].showGridLines = False
+        ws.column_dimensions["A"].width = 5
+
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uni_logo.png")
+        if os.path.exists(logo_path):
+            try:
+                img = Image(logo_path)
+                scale = 55 / img.height
+                img.width = int(img.width * scale)
+                img.height = 55
+                ws.add_image(img, "B1")
+            except Exception:
+                pass
+
+        ws.merge_cells("C1:H1")
+        ws["C1"] = "UNIVERSITÉ MOULAY ISMAÏL"
+        ws["C1"].font = Font(name="Arial", size=10, bold=True, color="1A2236")
+        ws["C1"].alignment = Alignment(horizontal="center", vertical="center")
+
+        ws.merge_cells("C2:H2")
+        ws["C2"] = title
+        ws["C2"].font = Font(name="Arial", size=12, bold=True, color="037DA7")
+        ws["C2"].alignment = Alignment(horizontal="center", vertical="center")
+
+        ws.merge_cells("C3:H3")
+        ws["C3"] = subtitle_text
+        ws["C3"].font = Font(name="Arial", size=9, italic=True, color="64748B")
+        ws["C3"].alignment = Alignment(horizontal="center", vertical="center")
+
+    def write_table_headers(ws, start_row, headers):
+        for idx, text in enumerate(headers, 2):
+            cell = ws.cell(row=start_row, column=idx, value=text)
+            cell.font = Font(name="Arial", size=10, bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="1A2236", end_color="1A2236", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    def style_table_rows(ws, start_row, row_count, status_col_idx=None, center_cols=None):
+        thin_border = Border(
+            left=Side(style='thin', color='DDE3EE'),
+            right=Side(style='thin', color='DDE3EE'),
+            top=Side(style='thin', color='DDE3EE'),
+            bottom=Side(style='thin', color='DDE3EE')
+        )
+
+        for r_idx in range(start_row, start_row + row_count):
+            is_even = (r_idx - start_row) % 2 == 1
+            row_fill = PatternFill(start_color="F8FAFC" if is_even else "FFFFFF", end_color="F8FAFC" if is_even else "FFFFFF", fill_type="solid")
+
+            max_col = ws.max_column
+            for col_idx in range(2, max_col + 1):
+                cell = ws.cell(row=r_idx, column=col_idx)
+                cell.font = Font(name="Arial", size=9)
+                cell.fill = row_fill
+                cell.border = thin_border
+
+                if center_cols and col_idx in center_cols:
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                else:
+                    cell.alignment = Alignment(horizontal="left", vertical="center")
+
+                if status_col_idx and col_idx == status_col_idx:
+                    val = str(cell.value or '').lower()
+                    if val in ["présent", "present", "retard"]:
+                        cell.font = Font(name="Arial", size=9, bold=True, color="16A34A")
+                    elif val in ["absent"]:
+                        cell.font = Font(name="Arial", size=9, bold=True, color="DC2626")
+
+    def auto_fit_columns(ws, start_row=8):
+        from openpyxl.utils import get_column_letter
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            if col_letter == "A":
+                continue
+            for cell in col:
+                if cell.row < start_row:
+                    continue
+                val = str(cell.value or '')
+                if len(val) > max_len:
+                    max_len = len(val)
+            ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+
+    wb = openpyxl.Workbook()
+    filename = "export_custom.xlsx"
+
+    if scope == "student":
+        student_id = request.query_params.get("student_id")
+        if not student_id:
+            return Response({"message": "ID étudiant requis."}, status=status.HTTP_400_BAD_REQUEST)
+        student = Etudiant.objects.select_related("user", "filiere").filter(id=student_id).first()
+        if not student:
+            return Response({"message": "Étudiant introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        modules = Module.objects.filter(filiere=student.filiere)
+        if semestre_filter:
+            modules = modules.filter(semestre=semestre_filter)
+        module_ids = list(modules.values_list("id", flat=True))
+
+        seances = Seance.objects.filter(cours__module_id__in=module_ids, qrcode__isnull=False).select_related(
+            "cours", "cours__module", "cours__enseignant", "cours__enseignant__user"
+        )
+        temp_seances = TemporarySeance.objects.filter(module_id__in=module_ids).select_related(
+            "module", "enseignant", "enseignant__user"
+        )
+
+        presences = {p.seance_id: p for p in Presence.objects.filter(etudiant=student, seance__in=seances)}
+        temp_presences = {p.temporary_seance_id: p for p in TemporaryPresence.objects.filter(etudiant=student, temporary_seance__in=temp_seances)}
+
+        rows = []
+        for s in seances:
+            p = presences.get(s.id)
+            stat_val = p.statut if p else "absent"
+            val_time = p.heure_validation if (p and p.heure_validation) else None
+            rows.append({
+                "date": s.date_seance,
+                "semestre": s.cours.module.semestre,
+                "module": s.cours.module.nom,
+                "enseignant": str(s.cours.enseignant),
+                "salle": s.cours.salle or "Non précisée",
+                "status": stat_val,
+                "validated_at": val_time
+            })
+
+        for ts in temp_seances:
+            p = temp_presences.get(ts.id)
+            stat_val = p.statut if p else "absent"
+            val_time = p.heure_validation if (p and p.heure_validation) else None
+            rows.append({
+                "date": ts.date_seance,
+                "semestre": ts.module.semestre,
+                "module": ts.module.nom,
+                "enseignant": str(ts.enseignant),
+                "salle": ts.salle or "Non précisée",
+                "status": stat_val,
+                "validated_at": val_time
+            })
+
+        rows.sort(key=lambda r: r["date"], reverse=True)
+
+        if export_type == "present":
+            rows = [r for r in rows if r["status"] in ["present", "retard"]]
+        elif export_type == "absent":
+            rows = [r for r in rows if r["status"] == "absent"]
+
+        ws = wb.active
+        ws.title = "Fiche Étudiant"
+        
+        apply_common_styles(ws, "FICHE DE PRÉSENCE ÉTUDIANT", f"Généré le {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+
+        ws["B5"] = f"Étudiant : {student.user.prenom} {student.user.nom}"
+        ws["B5"].font = Font(name="Arial", size=9, bold=True)
+        ws["E5"] = f"Code Massar : {student.code_massar}"
+        ws["E5"].font = Font(name="Arial", size=9, bold=True)
+        ws["G5"] = f"Filière : {student.filiere.nom}"
+        ws["G5"].font = Font(name="Arial", size=9, bold=True)
+
+        pres_cnt = sum(1 for r in rows if r["status"] in ["present", "retard"])
+        abs_cnt = sum(1 for r in rows if r["status"] == "absent")
+        tot_cnt = len(rows)
+        rate_val = round((pres_cnt / tot_cnt) * 100) if tot_cnt else 0
+
+        ws["B6"] = f"Période : {semestre_filter or 'Tous les semestres'}"
+        ws["B6"].font = Font(name="Arial", size=9.5, bold=True)
+        ws["E6"] = f"Présents: {pres_cnt} | Absents: {abs_cnt} | Taux: {rate_val}%"
+        ws["E6"].font = Font(name="Arial", size=9.5, bold=True, color="037DA7")
+
+        headers = ["N°", "Date", "Semestre", "Module", "Enseignant", "Salle", "Statut", "Heure de Validation"]
+        write_table_headers(ws, 8, headers)
+
+        current_row = 9
+        for idx, r in enumerate(rows, 1):
+            ws.cell(row=current_row, column=2, value=idx)
+            ws.cell(row=current_row, column=3, value=r["date"].strftime("%d/%m/%Y") if isinstance(r["date"], datetime) or hasattr(r["date"], "strftime") else str(r["date"]))
+            ws.cell(row=current_row, column=4, value=r["semestre"])
+            ws.cell(row=current_row, column=5, value=r["module"])
+            ws.cell(row=current_row, column=6, value=r["enseignant"])
+            ws.cell(row=current_row, column=7, value=r["salle"])
+            ws.cell(row=current_row, column=8, value="Présent" if r["status"] in ["present", "retard"] else "Absent")
+
+            val_time_str = ""
+            if r["validated_at"]:
+                try:
+                    val_time_str = timezone.localtime(r["validated_at"]).strftime("%d/%m/%Y %H:%M:%S")
+                except Exception:
+                    val_time_str = str(r["validated_at"])
+            ws.cell(row=current_row, column=9, value=val_time_str)
+            current_row += 1
+
+        style_table_rows(ws, 9, len(rows), status_col_idx=8, center_cols=[2, 3, 4, 7, 8, 9])
+        auto_fit_columns(ws, start_row=8)
+        ws.column_dimensions["I"].width = 24
+        
+        filename = f"presence_etudiant_{student.code_massar}_{export_type}.xlsx"
+
+    elif scope == "class":
+        filiere_id = request.query_params.get("filiere_id")
+        if not filiere_id:
+            return Response({"message": "ID classe/filière requis."}, status=status.HTTP_400_BAD_REQUEST)
+        filiere = Filiere.objects.filter(id=filiere_id).first()
+        if not filiere:
+            return Response({"message": "Classe/Filière introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        students = Etudiant.objects.filter(filiere=filiere).select_related("user")
+        modules = Module.objects.filter(filiere=filiere)
+        if semestre_filter:
+            modules = modules.filter(semestre=semestre_filter)
+        module_ids = list(modules.values_list("id", flat=True))
+
+        seances = Seance.objects.filter(cours__module_id__in=module_ids, qrcode__isnull=False).select_related(
+            "cours", "cours__module"
+        )
+        temp_seances = TemporarySeance.objects.filter(module_id__in=module_ids).select_related("module")
+
+        total_sessions = len(seances) + len(temp_seances)
+
+        presence_by_student_seance = {}
+        presence_times = {}
+
+        for p in Presence.objects.filter(seance_id__in=seances):
+            presence_by_student_seance[(p.etudiant_id, str(p.seance_id))] = p.statut
+            presence_times[(p.etudiant_id, str(p.seance_id))] = p.heure_validation
+
+        for p in TemporaryPresence.objects.filter(temporary_seance_id__in=temp_seances):
+            presence_by_student_seance[(p.etudiant_id, f"temp-{p.temporary_seance_id}")] = p.statut
+            presence_times[(p.etudiant_id, f"temp-{p.temporary_seance_id}")] = p.heure_validation
+
+        synthesis = []
+        for std in students:
+            present_count = 0
+            absent_count = 0
+
+            for s in seances:
+                stat = presence_by_student_seance.get((std.id, str(s.id)), "absent")
+                if stat in ["present", "retard"]:
+                    present_count += 1
+                else:
+                    absent_count += 1
+
+            for ts in temp_seances:
+                stat = presence_by_student_seance.get((std.id, f"temp-{ts.id}"), "absent")
+                if stat in ["present", "retard"]:
+                    present_count += 1
+                else:
+                    absent_count += 1
+
+            rate_val = round((present_count / total_sessions) * 100) if total_sessions else 0
+            synthesis.append({
+                "student": std,
+                "eligible": total_sessions,
+                "present": present_count,
+                "absent": absent_count,
+                "rate": rate_val
+            })
+
+        details = []
+        for std in students:
+            for s in seances:
+                stat = presence_by_student_seance.get((std.id, str(s.id)), "absent")
+                if export_type == "present" and stat == "absent":
+                    continue
+                if export_type == "absent" and stat in ["present", "retard"]:
+                    continue
+                val_time = presence_times.get((std.id, str(s.id)))
+                details.append({
+                    "date": s.date_seance,
+                    "module": s.cours.module.nom,
+                    "semestre": s.cours.module.semestre,
+                    "student_name": f"{std.user.prenom} {std.user.nom}",
+                    "code_massar": std.code_massar,
+                    "status": stat,
+                    "validated_at": val_time
+                })
+            for ts in temp_seances:
+                stat = presence_by_student_seance.get((std.id, f"temp-{ts.id}"), "absent")
+                if export_type == "present" and stat == "absent":
+                    continue
+                if export_type == "absent" and stat in ["present", "retard"]:
+                    continue
+                val_time = presence_times.get((std.id, f"temp-{ts.id}"))
+                details.append({
+                    "date": ts.date_seance,
+                    "module": ts.module.nom,
+                    "semestre": ts.module.semestre,
+                    "student_name": f"{std.user.prenom} {std.user.nom}",
+                    "code_massar": std.code_massar,
+                    "status": stat,
+                    "validated_at": val_time
+                })
+
+        details.sort(key=lambda d: d["date"], reverse=True)
+
+        ws1 = wb.active
+        ws1.title = "Synthèse Classe"
+        apply_common_styles(ws1, "SYNTHÈSE DE PRÉSENCE CLASSE", f"Généré le {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+
+        ws1["B5"] = f"Classe / Filière : {filiere.nom}"
+        ws1["B5"].font = Font(name="Arial", size=9, bold=True)
+        ws1["E5"] = f"Semestre : {semestre_filter or 'Tous les semestres'}"
+        ws1["E5"].font = Font(name="Arial", size=9, bold=True)
+        ws1["G5"] = f"Effectif : {len(students)} étudiants"
+        ws1["G5"].font = Font(name="Arial", size=9, bold=True)
+
+        ws1["B6"] = f"Séances totales : {total_sessions}"
+        ws1["B6"].font = Font(name="Arial", size=9.5, bold=True, color="037DA7")
+
+        headers1 = ["N°", "Code Massar", "Nom", "Prénom", "Séances Éligibles", "Présences", "Absences", "Taux de Présence"]
+        write_table_headers(ws1, 8, headers1)
+
+        current_row = 9
+        for idx, row in enumerate(synthesis, 1):
+            ws1.cell(row=current_row, column=2, value=idx)
+            ws1.cell(row=current_row, column=3, value=row["student"].code_massar)
+            ws1.cell(row=current_row, column=4, value=row["student"].user.nom)
+            ws1.cell(row=current_row, column=5, value=row["student"].user.prenom)
+            ws1.cell(row=current_row, column=6, value=row["eligible"])
+            ws1.cell(row=current_row, column=7, value=row["present"])
+            ws1.cell(row=current_row, column=8, value=row["absent"])
+            ws1.cell(row=current_row, column=9, value=f"{row['rate']}%")
+            current_row += 1
+
+        style_table_rows(ws1, 9, len(synthesis), center_cols=[2, 3, 6, 7, 8, 9])
+        auto_fit_columns(ws1, start_row=8)
+
+        ws2 = wb.create_sheet(title="Détail Émargements")
+        apply_common_styles(ws2, "DÉTAIL DES ÉMARGEMENTS CLASSE", f"Généré le {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+
+        ws2["B5"] = f"Classe / Filière : {filiere.nom}"
+        ws2["B5"].font = Font(name="Arial", size=9, bold=True)
+        ws2["E5"] = f"Type d'export : {export_type.upper()}"
+        ws2["E5"].font = Font(name="Arial", size=9, bold=True)
+
+        headers2 = ["N°", "Date", "Module", "Semestre", "Nom", "Prénom", "Code Massar", "Statut", "Heure de Validation"]
+        write_table_headers(ws2, 8, headers2)
+
+        current_row = 9
+        for idx, r in enumerate(details, 1):
+            ws2.cell(row=current_row, column=2, value=idx)
+            ws2.cell(row=current_row, column=3, value=r["date"].strftime("%d/%m/%Y") if isinstance(r["date"], datetime) or hasattr(r["date"], "strftime") else str(r["date"]))
+            ws2.cell(row=current_row, column=4, value=r["module"])
+            ws2.cell(row=current_row, column=5, value=r["semestre"])
+            names = r["student_name"].split(" ")
+            first_name = names[0]
+            last_name = " ".join(names[1:]) if len(names) > 1 else ""
+            ws2.cell(row=current_row, column=6, value=last_name)
+            ws2.cell(row=current_row, column=7, value=first_name)
+            ws2.cell(row=current_row, column=8, value=r["code_massar"])
+            ws2.cell(row=current_row, column=9, value="Présent" if r["status"] in ["present", "retard"] else "Absent")
+
+            val_time_str = ""
+            if r["validated_at"]:
+                try:
+                    val_time_str = timezone.localtime(r["validated_at"]).strftime("%d/%m/%Y %H:%M:%S")
+                except Exception:
+                    val_time_str = str(r["validated_at"])
+            ws2.cell(row=current_row, column=10, value=val_time_str)
+            current_row += 1
+
+        style_table_rows(ws2, 9, len(details), status_col_idx=9, center_cols=[2, 3, 5, 8, 9, 10])
+        auto_fit_columns(ws2, start_row=8)
+        ws2.column_dimensions["J"].width = 24
+
+        filename = f"presence_classe_{filiere.nom}_{export_type}.xlsx"
+
+    elif scope == "teacher":
+        enseignant_id = request.query_params.get("enseignant_id")
+        if not enseignant_id:
+            return Response({"message": "ID enseignant requis."}, status=status.HTTP_400_BAD_REQUEST)
+        enseignant = Enseignant.objects.select_related("user").filter(id=enseignant_id).first()
+        if not enseignant:
+            return Response({"message": "Enseignant introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        seances = Seance.objects.filter(cours__enseignant=enseignant, qrcode__isnull=False).select_related(
+            "cours", "cours__module", "cours__module__filiere"
+        )
+        temp_seances = TemporarySeance.objects.filter(enseignant=enseignant).select_related(
+            "module", "module__filiere"
+        )
+
+        if semestre_filter:
+            seances = seances.filter(cours__module__semestre=semestre_filter)
+            temp_seances = temp_seances.filter(module__semestre=semestre_filter)
+
+        eligible_by_filiere = {item["filiere_id"]: item["total"] for item in Etudiant.objects.values("filiere_id").annotate(total=Count("id"))}
+        
+        presence_counts = {str(item["seance_id"]): item["total"] for item in Presence.objects.filter(seance_id__in=seances).values("seance_id").annotate(total=Count("id"))}
+        temp_presence_counts = {item["temporary_seance_id"]: item["total"] for item in TemporaryPresence.objects.filter(temporary_seance_id__in=temp_seances).values("temporary_seance_id").annotate(total=Count("id"))}
+
+        sessions_list = []
+        for s in seances:
+            eligible = eligible_by_filiere.get(s.cours.module.filiere_id, 0)
+            p_count = presence_counts.get(str(s.id), 0)
+            sessions_list.append({
+                "date": s.date_seance,
+                "module": s.cours.module.nom,
+                "filiere": s.cours.module.filiere.nom,
+                "semestre": s.cours.module.semestre,
+                "type": "Régulier",
+                "salle": s.cours.salle or "Non précisée",
+                "eligible": eligible,
+                "present": p_count,
+                "absent": max(eligible - p_count, 0)
+            })
+
+        for ts in temp_seances:
+            eligible = eligible_by_filiere.get(ts.module.filiere_id, 0)
+            p_count = temp_presence_counts.get(ts.id, 0)
+            sessions_list.append({
+                "date": ts.date_seance,
+                "module": ts.module.nom,
+                "filiere": ts.module.filiere.nom,
+                "semestre": ts.module.semestre,
+                "type": "Temporaire",
+                "salle": ts.salle or "Non précisée",
+                "eligible": eligible,
+                "present": p_count,
+                "absent": max(eligible - p_count, 0)
+            })
+
+        sessions_list.sort(key=lambda x: x["date"], reverse=True)
+
+        details = []
+        for s in seances:
+            filiere_id = s.cours.module.filiere_id
+            stds = Etudiant.objects.filter(filiere_id=filiere_id).select_related("user")
+            presences = {p.etudiant_id: p for p in Presence.objects.filter(seance=s)}
+            for std in stds:
+                p = presences.get(std.id)
+                stat = p.statut if p else "absent"
+                if export_type == "present" and stat == "absent":
+                    continue
+                if export_type == "absent" and stat in ["present", "retard"]:
+                    continue
+                val_time = p.heure_validation if (p and p.heure_validation) else None
+                details.append({
+                    "date": s.date_seance,
+                    "module": s.cours.module.nom,
+                    "filiere": s.cours.module.filiere.nom,
+                    "semestre": s.cours.module.semestre,
+                    "student_name": f"{std.user.prenom} {std.user.nom}",
+                    "code_massar": std.code_massar,
+                    "status": stat,
+                    "validated_at": val_time
+                })
+
+        for ts in temp_seances:
+            filiere_id = ts.module.filiere_id
+            stds = Etudiant.objects.filter(filiere_id=filiere_id).select_related("user")
+            presences = {p.etudiant_id: p for p in TemporaryPresence.objects.filter(temporary_seance=ts)}
+            for std in stds:
+                p = presences.get(std.id)
+                stat = p.statut if p else "absent"
+                if export_type == "present" and stat == "absent":
+                    continue
+                if export_type == "absent" and stat in ["present", "retard"]:
+                    continue
+                val_time = p.heure_validation if (p and p.heure_validation) else None
+                details.append({
+                    "date": ts.date_seance,
+                    "module": ts.module.nom,
+                    "filiere": ts.module.filiere.nom,
+                    "semestre": ts.module.semestre,
+                    "student_name": f"{std.user.prenom} {std.user.nom}",
+                    "code_massar": std.code_massar,
+                    "status": stat,
+                    "validated_at": val_time
+                })
+
+        details.sort(key=lambda d: d["date"], reverse=True)
+
+        ws1 = wb.active
+        ws1.title = "Séances Enseignant"
+        apply_common_styles(ws1, "SÉANCES DE L'ENSEIGNANT", f"Généré le {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+
+        ws1["B5"] = f"Enseignant : {enseignant.user.prenom} {enseignant.user.nom}"
+        ws1["B5"].font = Font(name="Arial", size=9, bold=True)
+        ws1["E5"] = f"Semestre : {semestre_filter or 'Tous les semestres'}"
+        ws1["E5"].font = Font(name="Arial", size=9, bold=True)
+
+        headers1 = ["N°", "Date", "Module", "Filière", "Semestre", "Type", "Salle", "Éligibles", "Présents", "Absents", "Taux de Présence"]
+        write_table_headers(ws1, 8, headers1)
+
+        current_row = 9
+        for idx, row in enumerate(sessions_list, 1):
+            ws1.cell(row=current_row, column=2, value=idx)
+            ws1.cell(row=current_row, column=3, value=row["date"].strftime("%d/%m/%Y") if isinstance(row["date"], datetime) or hasattr(row["date"], "strftime") else str(row["date"]))
+            ws1.cell(row=current_row, column=4, value=row["module"])
+            ws1.cell(row=current_row, column=5, value=row["filiere"])
+            ws1.cell(row=current_row, column=6, value=row["semestre"])
+            ws1.cell(row=current_row, column=7, value=row["type"])
+            ws1.cell(row=current_row, column=8, value=row["salle"])
+            ws1.cell(row=current_row, column=9, value=row["eligible"])
+            ws1.cell(row=current_row, column=10, value=row["present"])
+            ws1.cell(row=current_row, column=11, value=row["absent"])
+            rate_percentage = round((row["present"] / row["eligible"]) * 100) if row["eligible"] else 0
+            ws1.cell(row=current_row, column=12, value=f"{rate_percentage}%")
+            current_row += 1
+
+        style_table_rows(ws1, 9, len(sessions_list), center_cols=[2, 3, 6, 7, 8, 9, 10, 11, 12])
+        auto_fit_columns(ws1, start_row=8)
+
+        ws2 = wb.create_sheet(title="Détail Émargements")
+        apply_common_styles(ws2, "DÉTAIL DES ÉMARGEMENTS ENSEIGNANT", f"Généré le {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+
+        ws2["B5"] = f"Enseignant : {enseignant.user.prenom} {enseignant.user.nom}"
+        ws2["B5"].font = Font(name="Arial", size=9, bold=True)
+
+        headers2 = ["N°", "Date", "Module", "Filière", "Semestre", "Nom", "Prénom", "Code Massar", "Statut", "Heure de Validation"]
+        write_table_headers(ws2, 8, headers2)
+
+        current_row = 9
+        for idx, r in enumerate(details, 1):
+            ws2.cell(row=current_row, column=2, value=idx)
+            ws2.cell(row=current_row, column=3, value=r["date"].strftime("%d/%m/%Y") if isinstance(r["date"], datetime) or hasattr(r["date"], "strftime") else str(r["date"]))
+            ws2.cell(row=current_row, column=4, value=r["module"])
+            ws2.cell(row=current_row, column=5, value=r["filiere"])
+            names = r["student_name"].split(" ")
+            first_name = names[0]
+            last_name = " ".join(names[1:]) if len(names) > 1 else ""
+            ws2.cell(row=current_row, column=6, value=last_name)
+            ws2.cell(row=current_row, column=7, value=first_name)
+            ws2.cell(row=current_row, column=8, value=r["code_massar"])
+            ws2.cell(row=current_row, column=9, value="Présent" if r["status"] in ["present", "retard"] else "Absent")
+
+            val_time_str = ""
+            if r["validated_at"]:
+                try:
+                    val_time_str = timezone.localtime(r["validated_at"]).strftime("%d/%m/%Y %H:%M:%S")
+                except Exception:
+                    val_time_str = str(r["validated_at"])
+            ws2.cell(row=current_row, column=10, value=val_time_str)
+            current_row += 1
+
+        style_table_rows(ws2, 9, len(details), status_col_idx=9, center_cols=[2, 3, 5, 8, 9, 10])
+        auto_fit_columns(ws2, start_row=8)
+        ws2.column_dimensions["J"].width = 24
+
+        filename = f"presence_enseignant_{enseignant.user.nom}_{export_type}.xlsx"
+
+    else:
+        return Response({"message": "Scope invalide."}, status=status.HTTP_400_BAD_REQUEST)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response

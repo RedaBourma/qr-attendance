@@ -7,7 +7,7 @@ from gestion_presence.api.auth_views import (
     password_reset_confirm_view,
     switch_role_view,
 )
-from gestion_presence.api.dashboard_views import dashboard_view
+from gestion_presence.api.dashboard_views import dashboard_view, custom_export_view
 from gestion_presence.api.enseignant_views import (
     create_enseignant,
     list_enseignants,
@@ -59,6 +59,7 @@ urlpatterns = [
     path("auth/password-reset/", password_reset_request_view, name="password_reset_request"),
     path("auth/password-reset-confirm/", password_reset_confirm_view, name="password_reset_confirm"),
     path("dashboard/", dashboard_view, name="dashboard"),
+    path("dashboard/export/", custom_export_view, name="custom_export_view"),
     path("seances/", list_seances, name="list_seances"),
     path("seances/filters/", teaching_filters, name="teaching_filters"),
     path("seances/academic/", academic_management, name="academic_management"),

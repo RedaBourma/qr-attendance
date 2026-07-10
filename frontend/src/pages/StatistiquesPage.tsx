@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import SidebarLayout from "../components/Sidebar";
 import { API_BASE } from "../config";
 
-type Tab = "students" | "courses" | "teachers";
+type Tab = "students" | "courses" | "teachers" | "export";
 type SeanceStatus = "active" | "expired";
 
 interface DashboardStats {
@@ -154,6 +154,121 @@ const css = `
   .st-link { background:var(--gray-100); border:none; border-radius:8px; color:var(--gray-800); cursor:pointer; font-family:inherit; font-size:12px; font-weight:800; padding:7px 9px; }
   @media (max-width:1100px) { .st-main,.st-hero { grid-template-columns:1fr; } .st-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   @media (max-width:640px) { .st-grid { grid-template-columns:1fr; } .st-search { min-width:100%; } }
+  
+  /* Export form styling */
+  .ext-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 600px;
+    margin: 20px auto;
+  }
+  .ext-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ext-label {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--gray-400);
+  }
+  .ext-scopes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .ext-scope-btn {
+    border: 1px solid var(--gray-200);
+    background: var(--white);
+    border-radius: 10px;
+    padding: 12px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    color: var(--gray-600);
+    transition: all 0.2s ease;
+  }
+  .ext-scope-btn.active {
+    border-color: var(--blue);
+    background: var(--blue-soft);
+    color: var(--blue);
+  }
+  .ext-select, .ext-input {
+    border: 1.5px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--gray-800);
+    outline: none;
+    background: var(--white);
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+  .ext-select:focus, .ext-input:focus {
+    border-color: var(--blue);
+  }
+  .ext-btn {
+    background: var(--blue);
+    color: var(--white);
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    padding: 12px 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background-color 0.2s;
+    margin-top: 10px;
+  }
+  .ext-btn:hover {
+    background: var(--blue-dark);
+  }
+  .ext-btn:disabled {
+    background: var(--gray-200);
+    color: var(--gray-400);
+    cursor: not-allowed;
+  }
+  .ext-search-results {
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--white);
+    margin-top: 4px;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .ext-search-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--gray-800);
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .ext-search-item:last-child {
+    border-bottom: none;
+  }
+  .ext-search-item:hover {
+    background: var(--gray-50);
+  }
+  .ext-search-item.selected {
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-weight: 700;
+  }
 `;
 
 function formatDate(iso: string) {
@@ -190,6 +305,23 @@ export default function StatistiquesPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [academicData, setAcademicData] = useState<{
+    filieres: { id: number; nom: string; semesters: string[] }[];
+    enseignants: { id: number; nom: string; prenom: string; email: string; name: string }[];
+    semesters: string[];
+  } | null>(null);
+
+  const [exportScope, setExportScope] = useState<"student" | "class" | "teacher">("student");
+  const [exportType, setExportType] = useState<"all" | "present" | "absent">("all");
+  const [exportSemester, setExportSemester] = useState("Tous");
+  
+  const [studentSearch, setStudentSearch] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState<StudentStat | null>(null);
+  
+  const [selectedFiliereId, setSelectedFiliereId] = useState("");
+  const [selectedTeacherId, setSelectedTeacherId] = useState("");
+  
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -219,6 +351,15 @@ export default function StatistiquesPage() {
         setCourses(payload.analytics.courses);
         setTeachers(payload.analytics.teachers);
         setSeances(payload.seances);
+
+        // Fetch academic info for exports
+        const acadRes = await fetch(`${API_BASE}/seances/academic/`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("access")}` },
+        });
+        if (acadRes.ok) {
+          const acadPayload = await acadRes.json();
+          setAcademicData(acadPayload);
+        }
       } catch {
         setError("Erreur de connexion avec le serveur.");
       } finally {
@@ -228,6 +369,75 @@ export default function StatistiquesPage() {
 
     loadStats();
   }, []);
+
+  const studentResults = useMemo(() => {
+    const q = studentSearch.trim().toLowerCase();
+    if (!q) return [];
+    return students.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q) ||
+        s.codeMassar.toLowerCase().includes(q)
+    ).slice(0, 10);
+  }, [students, studentSearch]);
+
+  const handleSelectStudent = (s: StudentStat) => {
+    setSelectedStudent(s);
+    setStudentSearch(s.name);
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      params.append("scope", exportScope);
+      params.append("type", exportType);
+      if (exportSemester && exportSemester !== "Tous") {
+        params.append("semestre", exportSemester);
+      }
+      if (exportScope === "student" && selectedStudent) {
+        params.append("student_id", String(selectedStudent.id));
+      } else if (exportScope === "class" && selectedFiliereId) {
+        params.append("filiere_id", selectedFiliereId);
+      } else if (exportScope === "teacher" && selectedTeacherId) {
+        params.append("enseignant_id", selectedTeacherId);
+      }
+
+      const res = await fetch(`${API_BASE}/dashboard/export/?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("access")}` },
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.message || "Erreur lors de l'exportation.");
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      
+      const disp = res.headers.get("content-disposition");
+      let filename = `export_${exportScope}_${exportType}.xlsx`;
+      if (disp && disp.includes("filename=")) {
+        const match = disp.match(/filename="(.+?)"/);
+        if (match && match[1]) {
+          filename = match[1];
+        }
+      }
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de l'exportation.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const filteredStudents = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -282,8 +492,11 @@ export default function StatistiquesPage() {
                   <button className={`st-tab ${tab === "students" ? "active" : ""}`} onClick={() => setTab("students")}>Par étudiant</button>
                   <button className={`st-tab ${tab === "courses" ? "active" : ""}`} onClick={() => setTab("courses")}>Par cours</button>
                   <button className={`st-tab ${tab === "teachers" ? "active" : ""}`} onClick={() => setTab("teachers")}>Par enseignant</button>
+                  <button className={`st-tab ${tab === "export" ? "active" : ""}`} onClick={() => setTab("export")}>Exportation</button>
                 </div>
-                <input className="st-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher..." />
+                {tab !== "export" && (
+                  <input className="st-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher..." />
+                )}
               </div>
 
               {loading ? (
@@ -322,7 +535,7 @@ export default function StatistiquesPage() {
                     </tbody>
                   </table>
                 </div>
-              ) : (
+              ) : tab === "teachers" ? (
                 <div className="st-table-wrap">
                   <table className="st-table">
                     <thead><tr><th>Enseignant</th><th>Cours</th><th>Séances</th><th>Présences</th><th>Taux</th></tr></thead>
@@ -338,6 +551,158 @@ export default function StatistiquesPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              ) : (
+                <div className="ext-form">
+                  <div className="ext-section">
+                    <span className="ext-label">Type d'extraction</span>
+                    <div className="ext-scopes">
+                      <button
+                        className={`ext-scope-btn ${exportScope === "student" ? "active" : ""}`}
+                        onClick={() => {
+                          setExportScope("student");
+                          setSelectedStudent(null);
+                          setStudentSearch("");
+                        }}
+                      >
+                        👤 Étudiant
+                      </button>
+                      <button
+                        className={`ext-scope-btn ${exportScope === "class" ? "active" : ""}`}
+                        onClick={() => setExportScope("class")}
+                      >
+                        🏫 Classe / Filière
+                      </button>
+                      <button
+                        className={`ext-scope-btn ${exportScope === "teacher" ? "active" : ""}`}
+                        onClick={() => setExportScope("teacher")}
+                      >
+                        🧑‍🏫 Enseignant
+                      </button>
+                    </div>
+                  </div>
+
+                  {exportScope === "student" && (
+                    <div className="ext-section" style={{ position: "relative" }}>
+                      <span className="ext-label">Sélectionner l'étudiant</span>
+                      <input
+                        className="ext-input"
+                        placeholder="Saisir le nom, email ou code Massar..."
+                        value={studentSearch}
+                        onChange={(e) => {
+                          setStudentSearch(e.target.value);
+                          if (selectedStudent && e.target.value !== selectedStudent.name) {
+                            setSelectedStudent(null);
+                          }
+                        }}
+                      />
+                      {studentResults.length > 0 && !selectedStudent && (
+                        <div className="ext-search-results">
+                          {studentResults.map((s) => (
+                            <div
+                              key={s.id}
+                              className="ext-search-item"
+                              onClick={() => handleSelectStudent(s)}
+                            >
+                              <strong>{s.name}</strong> ({s.codeMassar}) — {s.filiere}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {selectedStudent && (
+                        <div style={{ fontSize: "12px", color: "var(--green)", marginTop: "4px", fontWeight: "bold" }}>
+                          ✓ Étudiant sélectionné : {selectedStudent.name} ({selectedStudent.codeMassar})
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {exportScope === "class" && (
+                    <div className="ext-section">
+                      <span className="ext-label">Sélectionner la classe / filière</span>
+                      <select
+                        className="ext-select"
+                        value={selectedFiliereId}
+                        onChange={(e) => setSelectedFiliereId(e.target.value)}
+                      >
+                        <option value="">-- Choisir une filière --</option>
+                        {academicData?.filieres.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.nom}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {exportScope === "teacher" && (
+                    <div className="ext-section">
+                      <span className="ext-label">Sélectionner l'enseignant</span>
+                      <select
+                        className="ext-select"
+                        value={selectedTeacherId}
+                        onChange={(e) => setSelectedTeacherId(e.target.value)}
+                      >
+                        <option value="">-- Choisir un enseignant --</option>
+                        {academicData?.enseignants.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name || `${t.prenom} ${t.nom}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="ext-section">
+                    <span className="ext-label">Semestre</span>
+                    <select
+                      className="ext-select"
+                      value={exportSemester}
+                      onChange={(e) => setExportSemester(e.target.value)}
+                    >
+                      <option value="Tous">Tous les semestres</option>
+                      {academicData?.semesters.map((sem) => (
+                        <option key={sem} value={sem}>
+                          {sem}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="ext-section">
+                    <span className="ext-label">Type de données</span>
+                    <select
+                      className="ext-select"
+                      value={exportType}
+                      onChange={(e) => setExportType(e.target.value as any)}
+                    >
+                      <option value="all">Présences & Absences</option>
+                      <option value="present">Présences uniquement</option>
+                      <option value="absent">Absences uniquement</option>
+                    </select>
+                  </div>
+
+                  <button
+                    className="ext-btn"
+                    onClick={handleExport}
+                    disabled={
+                      exporting ||
+                      (exportScope === "student" && !selectedStudent) ||
+                      (exportScope === "class" && !selectedFiliereId) ||
+                      (exportScope === "teacher" && !selectedTeacherId)
+                    }
+                  >
+                    {exporting ? (
+                      <>Génération de l'export...</>
+                    ) : (
+                      <>
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "6px" }}>
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                        Exporter vers Excel (XLSX)
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </div>
