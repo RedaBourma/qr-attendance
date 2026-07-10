@@ -253,33 +253,33 @@ export default function StatistiquesPage() {
 
           <div className="st-hero">
             <div className="st-panel">
-              <div className="st-title">Statistiques de presence</div>
+              <div className="st-title">Statistiques de présence</div>
               <div className="st-sub">
-                Vue admin pour suivre le taux de presence global, reperer les etudiants a risque, comparer les cours et mesurer l'activite par enseignant.
+                Vue admin pour suivre le taux de présence global, repérer les étudiants à risque, comparer les cours et mesurer l'activité par enseignant.
               </div>
             </div>
             <div className="st-panel st-rate">
               <div>
                 <div className="st-rate-label">Taux global</div>
                 <div className="st-rate-num">{stats.attendanceRate}%</div>
-                <div className="st-meta">{stats.totalPresences} presences / {stats.totalEligible} attendues</div>
+                <div className="st-meta">{stats.totalPresences} présences / {stats.totalEligible} attendues</div>
               </div>
               <div className="st-ring" style={{ "--rate": `${stats.attendanceRate}%` } as CSSProperties} />
             </div>
           </div>
 
           <div className="st-grid">
-            <div className="st-metric"><div className="st-label">Etudiants</div><div className="st-value">{stats.totalStudents}</div><div className="st-meta">inscrits dans les filieres</div></div>
+            <div className="st-metric"><div className="st-label">Étudiants</div><div className="st-value">{stats.totalStudents}</div><div className="st-meta">inscrits dans les filières</div></div>
             <div className="st-metric"><div className="st-label">Enseignants</div><div className="st-value">{stats.totalTeachers}</div><div className="st-meta">{stats.totalCourses} cours actifs</div></div>
-            <div className="st-metric"><div className="st-label">Seances</div><div className="st-value">{stats.totalSeances}</div><div className="st-meta">{stats.activeSeances} actives maintenant</div></div>
-            <div className="st-metric"><div className="st-label">Moyenne / seance</div><div className="st-value">{stats.avgPresences}</div><div className="st-meta">presences validees</div></div>
+            <div className="st-metric"><div className="st-label">Séances</div><div className="st-value">{stats.totalSeances}</div><div className="st-meta">{stats.activeSeances} actives maintenant</div></div>
+            <div className="st-metric"><div className="st-label">Moyenne / séance</div><div className="st-value">{stats.avgPresences}</div><div className="st-meta">présences validées</div></div>
           </div>
 
           <div className="st-main">
             <div className="st-panel">
               <div className="st-toolbar">
                 <div className="st-tabs">
-                  <button className={`st-tab ${tab === "students" ? "active" : ""}`} onClick={() => setTab("students")}>Par etudiant</button>
+                  <button className={`st-tab ${tab === "students" ? "active" : ""}`} onClick={() => setTab("students")}>Par étudiant</button>
                   <button className={`st-tab ${tab === "courses" ? "active" : ""}`} onClick={() => setTab("courses")}>Par cours</button>
                   <button className={`st-tab ${tab === "teachers" ? "active" : ""}`} onClick={() => setTab("teachers")}>Par enseignant</button>
                 </div>
@@ -291,7 +291,7 @@ export default function StatistiquesPage() {
               ) : tab === "students" ? (
                 <div className="st-table-wrap">
                   <table className="st-table">
-                    <thead><tr><th>Etudiant</th><th>Classe</th><th>Presences</th><th>Absences</th><th>Taux</th></tr></thead>
+                    <thead><tr><th>Étudiant</th><th>Classe</th><th>Présences</th><th>Absences</th><th>Taux</th></tr></thead>
                     <tbody>
                       {filteredStudents.map((student) => (
                         <tr key={student.id}>
@@ -308,7 +308,7 @@ export default function StatistiquesPage() {
               ) : tab === "courses" ? (
                 <div className="st-table-wrap">
                   <table className="st-table">
-                    <thead><tr><th>Cours</th><th>Enseignant</th><th>Seances</th><th>Presences</th><th>Taux</th></tr></thead>
+                    <thead><tr><th>Cours</th><th>Enseignant</th><th>Séances</th><th>Présences</th><th>Taux</th></tr></thead>
                     <tbody>
                       {filteredCourses.map((course) => (
                         <tr key={course.id}>
@@ -325,7 +325,7 @@ export default function StatistiquesPage() {
               ) : (
                 <div className="st-table-wrap">
                   <table className="st-table">
-                    <thead><tr><th>Enseignant</th><th>Cours</th><th>Seances</th><th>Presences</th><th>Taux</th></tr></thead>
+                    <thead><tr><th>Enseignant</th><th>Cours</th><th>Séances</th><th>Présences</th><th>Taux</th></tr></thead>
                     <tbody>
                       {filteredTeachers.map((teacher) => (
                         <tr key={teacher.id}>
@@ -343,26 +343,26 @@ export default function StatistiquesPage() {
             </div>
 
             <div className="st-panel">
-              <div className="st-label">Seances recentes</div>
+              <div className="st-label">Séances récentes</div>
               <div className="st-recent-list">
                 {seances.length === 0 ? (
-                  <div className="st-empty">Aucune seance recente.</div>
+                  <div className="st-empty">Aucune séance récente.</div>
                 ) : seances.map((seance) => (
                   <div className={`st-session ${seance.isTemporary ? "temp" : ""}`} key={seance.id}>
                     <div className="st-session-head">
                       <div className="st-name">{seance.module}</div>
                       <span className={`st-badge ${seance.status === "active" ? "active" : seance.isTemporary ? "temp" : ""}`}>
-                        {seance.isTemporary ? "Temp" : seance.status === "active" ? "Active" : "Expiree"}
+                        {seance.isTemporary ? "Temp" : seance.status === "active" ? "Active" : "Expirée"}
                       </span>
                     </div>
                     <div className="st-small">{seance.filiere} | {seance.cours}</div>
                     <div className="st-small">
-                      {formatDate(seance.date)} | expire a {formatTime(seance.expiresAt)}
+                      {formatDate(seance.date)} | expiré à {formatTime(seance.expiresAt)}
                     </div>
                     <div className="st-small">
-                      {seance.professor ? `${seance.professor.prenom} ${seance.professor.nom}` : seance.enseignant || "Professeur non precise"} | {seance.presences} presences
+                      {seance.professor ? `${seance.professor.prenom} ${seance.professor.nom}` : seance.enseignant || "Professeur non précisé"} | {seance.presences} présences
                     </div>
-                    <button className="st-link" onClick={() => navigate(`/qr/${seance.id}`)}>Voir resultats</button>
+                    <button className="st-link" onClick={() => navigate(`/qr/${seance.id}`)}>Voir résultats</button>
                   </div>
                 ))}
               </div>

@@ -329,12 +329,12 @@ export default function ProfileSettingsPage() {
     const data = await res.json();
 
     if (!res.ok) {
-      setMessage(data.message || "Impossible de mettre a jour la photo.");
+      setMessage(data.message || "Impossible de mettre à jour la photo.");
       return;
     }
 
     updateStoredUser(data.user);
-    setMessage("Photo de profil mise a jour.");
+    setMessage("Photo de profil mise à jour.");
   };
 
   const handleRemove = async () => {
@@ -356,11 +356,11 @@ export default function ProfileSettingsPage() {
     }
 
     updateStoredUser(data.user);
-    setMessage("Photo de profil supprimee.");
+    setMessage("Photo de profil supprimée.");
   };
 
   return (
-    <SidebarLayout activePage="parametres" pageTitle="Parametres">
+    <SidebarLayout activePage="parametres" pageTitle="Paramètres">
       <style>{css}</style>
       <div className="profile-shell">
         <section className="profile-panel">
