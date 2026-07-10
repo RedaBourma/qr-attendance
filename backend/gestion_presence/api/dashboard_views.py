@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from gestion_presence.models import Cours, Enseignant, Etudiant, Presence, Seance, TemporaryPresence, TemporarySeance, User
+from gestion_presence.models import Cours, Enseignant, Etudiant, Filiere, Module, Presence, Seance, TemporaryPresence, TemporarySeance, User
 
 
 def get_visible_seances(user):
@@ -426,7 +426,7 @@ def custom_export_view(request):
         )
 
         presences = {p.seance_id: p for p in Presence.objects.filter(etudiant=student, seance__in=seances)}
-        temp_presences = {p.temporary_seance_id: p for p in TemporaryPresence.objects.filter(etudiant=student, temporary_seance__in=temp_seances)}
+        temp_presences = {p.seance_id: p for p in TemporaryPresence.objects.filter(etudiant=student, seance__in=temp_seances)}
 
         rows = []
         for s in seances:
@@ -542,9 +542,9 @@ def custom_export_view(request):
             presence_by_student_seance[(p.etudiant_id, str(p.seance_id))] = p.statut
             presence_times[(p.etudiant_id, str(p.seance_id))] = p.heure_validation
 
-        for p in TemporaryPresence.objects.filter(temporary_seance_id__in=temp_seances):
-            presence_by_student_seance[(p.etudiant_id, f"temp-{p.temporary_seance_id}")] = p.statut
-            presence_times[(p.etudiant_id, f"temp-{p.temporary_seance_id}")] = p.heure_validation
+        for p in TemporaryPresence.objects.filter(seance_id__in=temp_seances):
+            presence_by_student_seance[(p.etudiant_id, f"temp-{p.seance_id}")] = p.statut
+            presence_times[(p.etudiant_id, f"temp-{p.seance_id}")] = p.heure_validation
 
         synthesis = []
         for std in students:
@@ -705,7 +705,7 @@ def custom_export_view(request):
         eligible_by_filiere = {item["filiere_id"]: item["total"] for item in Etudiant.objects.values("filiere_id").annotate(total=Count("id"))}
         
         presence_counts = {str(item["seance_id"]): item["total"] for item in Presence.objects.filter(seance_id__in=seances).values("seance_id").annotate(total=Count("id"))}
-        temp_presence_counts = {item["temporary_seance_id"]: item["total"] for item in TemporaryPresence.objects.filter(temporary_seance_id__in=temp_seances).values("temporary_seance_id").annotate(total=Count("id"))}
+        temp_presence_counts = {item["seance_id"]: item["total"] for item in TemporaryPresence.objects.filter(seance_id__in=temp_seances).values("seance_id").annotate(total=Count("id"))}
 
         sessions_list = []
         for s in seances:
@@ -767,7 +767,7 @@ def custom_export_view(request):
         for ts in temp_seances:
             filiere_id = ts.module.filiere_id
             stds = Etudiant.objects.filter(filiere_id=filiere_id).select_related("user")
-            presences = {p.etudiant_id: p for p in TemporaryPresence.objects.filter(temporary_seance=ts)}
+            presences = {p.etudiant_id: p for p in TemporaryPresence.objects.filter(seance=ts)}
             for std in stds:
                 p = presences.get(std.id)
                 stat = p.statut if p else "absent"
@@ -835,13 +835,14 @@ def custom_export_view(request):
             ws2.cell(row=current_row, column=3, value=r["date"].strftime("%d/%m/%Y") if isinstance(r["date"], datetime) or hasattr(r["date"], "strftime") else str(r["date"]))
             ws2.cell(row=current_row, column=4, value=r["module"])
             ws2.cell(row=current_row, column=5, value=r["filiere"])
+            ws2.cell(row=current_row, column=6, value=r["semestre"])
             names = r["student_name"].split(" ")
             first_name = names[0]
             last_name = " ".join(names[1:]) if len(names) > 1 else ""
-            ws2.cell(row=current_row, column=6, value=last_name)
-            ws2.cell(row=current_row, column=7, value=first_name)
-            ws2.cell(row=current_row, column=8, value=r["code_massar"])
-            ws2.cell(row=current_row, column=9, value="Présent" if r["status"] in ["present", "retard"] else "Absent")
+            ws2.cell(row=current_row, column=7, value=last_name)
+            ws2.cell(row=current_row, column=8, value=first_name)
+            ws2.cell(row=current_row, column=9, value=r["code_massar"])
+            ws2.cell(row=current_row, column=10, value="Présent" if r["status"] in ["present", "retard"] else "Absent")
 
             val_time_str = ""
             if r["validated_at"]:
@@ -849,12 +850,12 @@ def custom_export_view(request):
                     val_time_str = timezone.localtime(r["validated_at"]).strftime("%d/%m/%Y %H:%M:%S")
                 except Exception:
                     val_time_str = str(r["validated_at"])
-            ws2.cell(row=current_row, column=10, value=val_time_str)
+            ws2.cell(row=current_row, column=11, value=val_time_str)
             current_row += 1
 
-        style_table_rows(ws2, 9, len(details), status_col_idx=9, center_cols=[2, 3, 5, 8, 9, 10])
+        style_table_rows(ws2, 9, len(details), status_col_idx=10, center_cols=[2, 3, 6, 9, 10, 11])
         auto_fit_columns(ws2, start_row=8)
-        ws2.column_dimensions["J"].width = 24
+        ws2.column_dimensions["K"].width = 24
 
         filename = f"presence_enseignant_{enseignant.user.nom}_{export_type}.xlsx"
 
