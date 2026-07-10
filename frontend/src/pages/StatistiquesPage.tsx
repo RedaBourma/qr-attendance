@@ -316,11 +316,29 @@ export default function StatistiquesPage() {
   const [exportSemester, setExportSemester] = useState("Tous");
   
   const [selectedStudent, setSelectedStudent] = useState<StudentStat | null>(null);
+  const [studentFiliereFilter, setStudentFiliereFilter] = useState("");
   
   const [selectedFiliereId, setSelectedFiliereId] = useState("");
   const [selectedTeacherId, setSelectedTeacherId] = useState("");
   
   const [exporting, setExporting] = useState(false);
+
+  const availableSemesters = useMemo(() => {
+    if (!academicData) return [];
+    
+    let targetFiliere = null;
+    if (exportScope === "student" && studentFiliereFilter) {
+      targetFiliere = academicData.filieres.find((f) => f.nom === studentFiliereFilter);
+    } else if (exportScope === "class" && selectedFiliereId) {
+      targetFiliere = academicData.filieres.find((f) => String(f.id) === selectedFiliereId);
+    }
+    
+    if (targetFiliere) {
+      return targetFiliere.semesters;
+    }
+    
+    return academicData.semesters;
+  }, [academicData, exportScope, studentFiliereFilter, selectedFiliereId]);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -506,6 +524,11 @@ export default function StatistiquesPage() {
                                 setTab("export");
                                 setExportScope("student");
                                 setSelectedStudent(student);
+                                setStudentFiliereFilter(student.filiere);
+                                const targetFiliere = academicData?.filieres.find((f) => f.nom === student.filiere);
+                                if (targetFiliere && exportSemester !== "Tous" && !targetFiliere.semesters.includes(exportSemester)) {
+                                  setExportSemester("Tous");
+                                }
                               }}
                             >
                               Exporter
@@ -538,8 +561,14 @@ export default function StatistiquesPage() {
                                 const fil = academicData?.filieres.find(f => f.nom === course.filiere);
                                 if (fil) {
                                   setSelectedFiliereId(String(fil.id));
+                                  if (course.semestre !== "Tous" && !fil.semesters.includes(course.semestre)) {
+                                    setExportSemester("Tous");
+                                  } else {
+                                    setExportSemester(course.semestre);
+                                  }
+                                } else {
+                                  setExportSemester("Tous");
                                 }
-                                setExportSemester(course.semestre);
                               }}
                             >
                               Exporter
@@ -583,14 +612,6 @@ export default function StatistiquesPage() {
                 </div>
               ) : (
                 <div className="ext-form">
-                  <div className="st-session" style={{ borderLeftColor: "var(--blue)", background: "var(--gray-50)", marginBottom: "10px" }}>
-                    <div style={{ fontWeight: "bold", color: "var(--gray-800)", marginBottom: "4px" }}>💡 Outil d'extraction et d'exportation de données</div>
-                    <div style={{ fontSize: "12px", color: "var(--gray-600)", lineHeight: "1.4" }}>
-                      Cet outil vous permet de générer des rapports de présence et d'absence au format Excel (XLSX). 
-                      Vous pouvez extraire les données pour un **étudiant spécifique**, pour une **classe / filière entière**, ou pour les cours d'un **enseignant**, filtrés par **semestre** et par **statut de présence**.
-                    </div>
-                  </div>
-
                   <div className="ext-section">
                     <span className="ext-label">Type d'extraction</span>
                     <div className="ext-scopes">
@@ -599,19 +620,29 @@ export default function StatistiquesPage() {
                         onClick={() => {
                           setExportScope("student");
                           setSelectedStudent(null);
+                          setStudentFiliereFilter("");
+                          setExportSemester("Tous");
                         }}
                       >
                         👤 Étudiant
                       </button>
                       <button
                         className={`ext-scope-btn ${exportScope === "class" ? "active" : ""}`}
-                        onClick={() => setExportScope("class")}
+                        onClick={() => {
+                          setExportScope("class");
+                          setSelectedFiliereId("");
+                          setExportSemester("Tous");
+                        }}
                       >
                         🏫 Classe / Filière
                       </button>
                       <button
                         className={`ext-scope-btn ${exportScope === "teacher" ? "active" : ""}`}
-                        onClick={() => setExportScope("teacher")}
+                        onClick={() => {
+                          setExportScope("teacher");
+                          setSelectedTeacherId("");
+                          setExportSemester("Tous");
+                        }}
                       >
                         🧑‍🏫 Enseignant
                       </button>
@@ -619,28 +650,60 @@ export default function StatistiquesPage() {
                   </div>
 
                   {exportScope === "student" && (
-                    <div className="ext-section">
-                      <span className="ext-label">Sélectionner l'étudiant</span>
-                      <select
-                        className="ext-select"
-                        value={selectedStudent?.id || ""}
-                        onChange={(e) => {
-                          const id = Number(e.target.value);
-                          const s = students.find((std) => std.id === id) || null;
-                          setSelectedStudent(s);
-                        }}
-                      >
-                        <option value="">-- Choisir un étudiant --</option>
-                        {students
-                          .slice()
-                          .sort((a, b) => a.name.localeCompare(b.name))
-                          .map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name} ({s.codeMassar}) — {s.filiere}
+                    <>
+                      <div className="ext-section">
+                        <span className="ext-label">Filière de l'étudiant</span>
+                        <select
+                          className="ext-select"
+                          value={studentFiliereFilter}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setStudentFiliereFilter(val);
+                            setSelectedStudent(null);
+                            const targetFiliere = academicData?.filieres.find((f) => f.nom === val);
+                            if (targetFiliere && exportSemester !== "Tous" && !targetFiliere.semesters.includes(exportSemester)) {
+                              setExportSemester("Tous");
+                            }
+                          }}
+                        >
+                          <option value="">-- Choisir une filière --</option>
+                          {academicData?.filieres.map((f) => (
+                            <option key={f.id} value={f.nom}>
+                              {f.nom}
                             </option>
                           ))}
-                      </select>
-                    </div>
+                        </select>
+                      </div>
+
+                      <div className="ext-section">
+                        <span className="ext-label">Sélectionner l'étudiant</span>
+                        <select
+                          className="ext-select"
+                          value={selectedStudent?.id || ""}
+                          onChange={(e) => {
+                            const id = Number(e.target.value);
+                            const s = students.find((std) => std.id === id) || null;
+                            setSelectedStudent(s);
+                          }}
+                          disabled={!studentFiliereFilter}
+                        >
+                          <option value="">
+                            {studentFiliereFilter 
+                              ? "-- Choisir un étudiant --" 
+                              : "-- Veuillez choisir une filière d'abord --"}
+                          </option>
+                          {students
+                            .filter((s) => !studentFiliereFilter || s.filiere === studentFiliereFilter)
+                            .slice()
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name} ({s.codeMassar})
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    </>
                   )}
 
                   {exportScope === "class" && (
@@ -649,7 +712,14 @@ export default function StatistiquesPage() {
                       <select
                         className="ext-select"
                         value={selectedFiliereId}
-                        onChange={(e) => setSelectedFiliereId(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSelectedFiliereId(val);
+                          const targetFiliere = academicData?.filieres.find((f) => String(f.id) === val);
+                          if (targetFiliere && exportSemester !== "Tous" && !targetFiliere.semesters.includes(exportSemester)) {
+                            setExportSemester("Tous");
+                          }
+                        }}
                       >
                         <option value="">-- Choisir une filière --</option>
                         {academicData?.filieres.map((f) => (
@@ -687,7 +757,7 @@ export default function StatistiquesPage() {
                       onChange={(e) => setExportSemester(e.target.value)}
                     >
                       <option value="Tous">Tous les semestres</option>
-                      {academicData?.semesters.map((sem) => (
+                      {availableSemesters.map((sem) => (
                         <option key={sem} value={sem}>
                           {sem}
                         </option>
@@ -700,7 +770,7 @@ export default function StatistiquesPage() {
                     <select
                       className="ext-select"
                       value={exportType}
-                      onChange={(e) => setExportType(e.target.value as any)}
+                      onChange={(e) => setExportType(e.target.value as "all" | "present" | "absent")}
                     >
                       <option value="all">Présences & Absences</option>
                       <option value="present">Présences uniquement</option>
