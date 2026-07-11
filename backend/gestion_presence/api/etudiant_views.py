@@ -27,6 +27,7 @@ def serialize_module(module):
         "id": module.id,
         "nom": module.nom,
         "semestre": module.semestre,
+        "filiere_id": module.filiere_id,
     }
 
 
@@ -110,6 +111,7 @@ def list_etudiants(request):
         {
             "filters": {
                 "filieres": [serialize_filiere(filiere) for filiere in accessible_filieres],
+                "modules": [serialize_module(module) for module in accessible_modules],
             },
             "etudiants": serialized_etudiants,
         }

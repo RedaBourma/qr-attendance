@@ -11,6 +11,7 @@ interface ModuleItem {
   id: number;
   nom: string;
   semestre: string;
+  filiere_id?: number;
 }
 
 interface Etudiant {
@@ -26,6 +27,7 @@ interface Etudiant {
 interface EtudiantsResponse {
   filters: {
     filieres: FiliereOption[];
+    modules: ModuleItem[];
   };
   etudiants: Etudiant[];
 }
@@ -452,8 +454,10 @@ function getUserRole() {
 
 export default function EtudiantsPage() {
   const [filieres, setFilieres] = useState<FiliereOption[]>([]);
+  const [modules, setModules] = useState<ModuleItem[]>([]);
   const [etudiants, setEtudiants] = useState<Etudiant[]>([]);
   const [selectedFiliere, setSelectedFiliere] = useState("");
+  const [selectedModule, setSelectedModule] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -742,6 +746,7 @@ export default function EtudiantsPage() {
 
         const payload = data as EtudiantsResponse;
         setFilieres(payload.filters.filieres);
+        setModules(payload.filters.modules || []);
         setEtudiants(payload.etudiants);
       } catch {
         setError("Erreur de connexion avec le serveur.");
@@ -798,13 +803,19 @@ export default function EtudiantsPage() {
   };
 
   const filteredEtudiants = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    let result = etudiants;
 
-    if (!q) {
-      return etudiants;
+    if (selectedModule) {
+      const modId = Number(selectedModule);
+      result = result.filter((et) => et.modules.some((m) => m.id === modId));
     }
 
-    return etudiants.filter((etudiant) => {
+    const q = search.trim().toLowerCase();
+    if (!q) {
+      return result;
+    }
+
+    return result.filter((etudiant) => {
       const fullName = `${etudiant.prenom} ${etudiant.nom}`.toLowerCase();
       return (
         fullName.includes(q) ||
@@ -812,7 +823,7 @@ export default function EtudiantsPage() {
         etudiant.code_massar.toLowerCase().includes(q)
       );
     });
-  }, [etudiants, search]);
+  }, [etudiants, search, selectedModule]);
 
   return (
     <>
@@ -973,16 +984,39 @@ export default function EtudiantsPage() {
             </div>
           )}
 
-          <div className="et-filters" style={{ gridTemplateColumns: "1fr 1fr" }}>
+          <div className="et-filters">
             <div className="et-filter">
               <label>Filière</label>
-              <select value={selectedFiliere} onChange={(event) => setSelectedFiliere(event.target.value)}>
+              <select
+                value={selectedFiliere}
+                onChange={(event) => {
+                  setSelectedFiliere(event.target.value);
+                  setSelectedModule("");
+                }}
+              >
                 <option value="">Toutes les filières</option>
                 {filieres.map((filiere) => (
                   <option value={filiere.id} key={filiere.id}>
                     {filiere.nom}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div className="et-filter">
+              <label>Module</label>
+              <select
+                value={selectedModule}
+                onChange={(event) => setSelectedModule(event.target.value)}
+              >
+                <option value="">Tous les modules</option>
+                {modules
+                  .filter((m) => !selectedFiliere || String(m.filiere_id) === selectedFiliere)
+                  .map((module) => (
+                    <option value={module.id} key={module.id}>
+                      {module.nom} ({module.semestre})
+                    </option>
+                  ))}
               </select>
             </div>
 
