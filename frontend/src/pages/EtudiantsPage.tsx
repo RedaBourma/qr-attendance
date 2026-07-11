@@ -5,6 +5,7 @@ import { API_BASE } from "../config";
 interface FiliereOption {
   id: number;
   nom: string;
+  semesters?: string[];
 }
 
 interface ModuleItem {
@@ -933,9 +934,9 @@ export default function EtudiantsPage() {
                         required
                       >
                         <option value="">Choisir un semestre</option>
-                        {filieres
+                        {(filieres
                           .find((f) => String(f.id) === form.filiere_id)
-                          ?.semesters.map((sem) => (
+                          ?.semesters || []).map((sem: string) => (
                             <option value={sem} key={sem}>{sem}</option>
                           ))}
                       </select>
@@ -1031,9 +1032,9 @@ export default function EtudiantsPage() {
                         disabled={!importFiliere}
                       >
                         <option value="">Choisir un semestre</option>
-                        {filieres
+                        {(filieres
                           .find((f) => String(f.id) === importFiliere)
-                          ?.semesters.map((sem) => (
+                          ?.semesters || []).map((sem: string) => (
                             <option value={sem} key={sem}>{sem}</option>
                           ))}
                       </select>
@@ -1346,9 +1347,9 @@ export default function EtudiantsPage() {
                         required
                       >
                         <option value="">Choisir un semestre</option>
-                        {filieres
+                        {(filieres
                           .find((f) => String(f.id) === editForm.filiere_id)
-                          ?.semesters.map((sem) => (
+                          ?.semesters || []).map((sem: string) => (
                             <option value={sem} key={sem}>
                               {sem}
                             </option>
