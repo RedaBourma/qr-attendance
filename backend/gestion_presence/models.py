@@ -1,4 +1,4 @@
-from gestion_presence.models import Admin, Cours, Enseignant, Etudiant, Filiere, Module, Presence, QRCode, Seance, User
+from gestion_presence.models import Admin, Cours, Enseignant, Etudiant, Filiere, Module, Presence, QRCode, Seance, User, Salle
 
 __all__ = [
     "Admin",
@@ -11,4 +11,5 @@ __all__ = [
     "QRCode",
     "Seance",
     "User",
+    "Salle",
 ]

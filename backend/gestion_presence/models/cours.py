@@ -41,6 +41,11 @@ class Cours(models.Model):
         ]
 
     def clean(self):
+        if self.salle and self.salle.strip():
+            from .salle import Salle
+            if not Salle.objects.filter(nom=self.salle.strip()).exists():
+                raise ValidationError({"salle": f"La salle '{self.salle}' n'existe pas dans la base de données."})
+
         if self.heure_debut and self.heure_fin:
             if self.heure_fin <= self.heure_debut:
                 raise ValidationError({"heure_fin": "L'heure de fin doit etre apres l'heure de debut."})

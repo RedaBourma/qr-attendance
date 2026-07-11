@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from gestion_presence.models import Cours, Enseignant, Etudiant, Filiere, Module, TemporarySeance, User
+from gestion_presence.models import Cours, Enseignant, Etudiant, Filiere, Module, TemporarySeance, User, Salle
 
 
 def build_filiere_tracks(filiere):
@@ -217,6 +217,8 @@ def teaching_filters(request):
     for module in modules:
         semesters_by_filiere.setdefault(module.filiere_id, set()).add(module.semestre)
 
+    salles = Salle.objects.all().order_by("id")
+
     return Response(
         {
             "filieres": [{"id": filiere.id, "nom": filiere.nom} for filiere in filieres.order_by("nom")],
@@ -233,6 +235,7 @@ def teaching_filters(request):
                 str(filiere_id): sorted(values)
                 for filiere_id, values in semesters_by_filiere.items()
             },
+            "salles": [{"id": s.id, "nom": s.nom} for s in salles],
         }
     )
 
@@ -252,6 +255,10 @@ def create_temporary_seance(request):
     salle = (request.data.get("salle") or "").strip() or "Non précisée"
     validite_min = int(request.data.get("validite_min") or 120)
     max_distance = int(request.data.get("max_distance") or 20)
+
+    if salle and salle not in ["Non précisée", "Non précisee"]:
+        if not Salle.objects.filter(nom=salle).exists():
+            return Response({"message": f"La salle '{salle}' n'existe pas."}, status=status.HTTP_400_BAD_REQUEST)
 
     if not module_id:
         return Response({"message": "Le module est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
@@ -310,6 +317,8 @@ def academic_management(request):
             semesters.update(f.semesters)
     semesters = sorted(list(semesters))
 
+    salles = Salle.objects.all().order_by("id")
+
     return Response(
         {
             "filieres": [serialize_filiere(filiere) for filiere in filieres],
@@ -317,6 +326,7 @@ def academic_management(request):
             "enseignants": [serialize_enseignant(enseignant) for enseignant in enseignants],
             "cours": [serialize_academic_cours(item) for item in cours],
             "semesters": semesters,
+            "salles": [{"id": s.id, "nom": s.nom} for s in salles],
         }
     )
 
