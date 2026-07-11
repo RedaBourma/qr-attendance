@@ -709,9 +709,15 @@ def submit_qr_scan(request, token):
         return Response({"message": "Le nom ne correspond pas au code Massar."}, status=status.HTTP_403_FORBIDDEN)
 
     module = seance.module if is_temp else seance.cours.module
-    if etudiant.filiere_id != module.filiere_id:
+    if etudiant.filiere_id != module.filiere_id or etudiant.semestre != module.semestre:
         return Response(
-            {"message": "Cet étudiant n'appartient pas à cette filière."},
+            {"message": "Cet étudiant n'appartient pas à cette filière et ce semestre."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if not etudiant.modules.filter(id=module.id).exists():
+        return Response(
+            {"message": "Cet étudiant n'est pas inscrit à ce module."},
             status=status.HTTP_403_FORBIDDEN,
         )
 

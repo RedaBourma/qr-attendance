@@ -522,10 +522,17 @@ def custom_export_view(request):
         if not filiere:
             return Response({"message": "Classe/Filière introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
+        module_id = request.query_params.get("module_id") or request.query_params.get("module")
         students = Etudiant.objects.filter(filiere=filiere).select_related("user")
         modules = Module.objects.filter(filiere=filiere)
         if semestre_filter:
             modules = modules.filter(semestre=semestre_filter)
+        if module_id:
+            modules = modules.filter(id=module_id)
+            students = students.filter(modules__id=module_id).distinct()
+        elif semestre_filter:
+            students = students.filter(semestre=semestre_filter)
+
         module_ids = list(modules.values_list("id", flat=True))
 
         seances = Seance.objects.filter(cours__module_id__in=module_ids, qrcode__isnull=False).select_related(
@@ -617,7 +624,10 @@ def custom_export_view(request):
 
         ws1["B5"] = f"Classe / Filière : {filiere.nom}"
         ws1["B5"].font = Font(name="Arial", size=9, bold=True)
-        ws1["E5"] = f"Semestre : {semestre_filter or 'Tous les semestres'}"
+        module_text = ""
+        if module_id and modules.exists():
+            module_text = f" | Module : {modules.first().nom}"
+        ws1["E5"] = f"Semestre : {semestre_filter or 'Tous les semestres'}{module_text}"
         ws1["E5"].font = Font(name="Arial", size=9, bold=True)
         ws1["G5"] = f"Effectif : {len(students)} étudiants"
         ws1["G5"].font = Font(name="Arial", size=9, bold=True)

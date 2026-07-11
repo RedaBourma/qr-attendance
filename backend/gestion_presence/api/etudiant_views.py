@@ -40,6 +40,7 @@ def serialize_etudiant(etudiant, modules, request=None):
         "email": etudiant.user.email,
         "profile_picture": serialize_user(etudiant.user, request)["profile_picture"],
         "filiere": serialize_filiere(etudiant.filiere),
+        "semestre": etudiant.semestre,
         "modules": [serialize_module(module) for module in modules],
     }
 
@@ -54,9 +55,7 @@ def build_student_scope_from_modules(modules):
 
 
 def modules_for_student(etudiant, allowed_module_ids):
-    modules = Module.objects.filter(
-        filiere_id=etudiant.filiere_id,
-    ).select_related("filiere")
+    modules = etudiant.modules.all().select_related("filiere")
 
     if allowed_module_ids is not None:
         modules = modules.filter(id__in=allowed_module_ids)
@@ -100,6 +99,7 @@ def list_etudiants(request):
         etudiants = etudiants.filter(filiere_id=filiere_id)
         accessible_modules = accessible_modules.filter(filiere_id=filiere_id)
 
+    etudiants = etudiants.prefetch_related("modules", "modules__filiere")
     accessible_module_ids = set(accessible_modules.values_list("id", flat=True))
     serialized_etudiants = []
 
@@ -132,10 +132,12 @@ def create_etudiant(request):
     password = request.data.get("password") or ""
     code_massar = (request.data.get("code_massar") or "").strip()
     filiere_id = request.data.get("filiere_id")
+    semestre = (request.data.get("semestre") or "").strip()
+    module_ids = request.data.get("module_ids") or []
 
-    if not all([nom, prenom, code_massar, filiere_id]):
+    if not all([nom, prenom, code_massar, filiere_id, semestre]):
         return Response(
-            {"message": "Nom, prénom, code Massar et filière sont requis."},
+            {"message": "Nom, prénom, code Massar, filière et semestre sont requis."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -163,12 +165,14 @@ def create_etudiant(request):
                 nom=nom,
                 prenom=prenom,
                 role=User.Role.ETUDIANT,
-              )
+            )
             etudiant = Etudiant.objects.create(
                 user=user,
                 code_massar=code_massar,
                 filiere=filiere,
+                semestre=semestre,
             )
+            etudiant.modules.set(module_ids)
     except IntegrityError:
         return Response(
             {"message": "Un utilisateur avec cet email ou ce code Massar existe déjà."},
@@ -191,12 +195,15 @@ def import_etudiants(request):
         )
 
     filiere_id = request.data.get("filiere_id")
-    if not filiere_id:
-        return Response({"message": "La filière est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
+    semestre = (request.data.get("semestre") or "").strip()
+    if not filiere_id or not semestre:
+        return Response({"message": "La filière et le semestre sont obligatoires."}, status=status.HTTP_400_BAD_REQUEST)
 
     filiere = Filiere.objects.filter(id=filiere_id).first()
     if not filiere:
         return Response({"message": "Filière introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+    all_modules = list(Module.objects.filter(filiere=filiere, semestre=semestre))
 
     uploaded_file = request.FILES.get("file")
     if not uploaded_file:
@@ -291,11 +298,14 @@ def import_etudiants(request):
                     prenom=prenom,
                     role=User.Role.ETUDIANT,
                 )
-                Etudiant.objects.create(
+                etudiant = Etudiant.objects.create(
                     user=user,
                     code_massar=code_massar,
                     filiere=filiere,
+                    semestre=semestre,
                 )
+                if all_modules:
+                    etudiant.modules.set(all_modules)
                 success_count += 1
         except IntegrityError:
             errors.append(f"Ligne {index} ({prenom} {nom}) : Un utilisateur avec cet email ou ce code Massar existe déjà.")
@@ -327,10 +337,12 @@ def update_etudiant(request, etudiant_id):
     password = request.data.get("password") or ""
     code_massar = (request.data.get("code_massar") or "").strip()
     filiere_id = request.data.get("filiere_id")
+    semestre = (request.data.get("semestre") or "").strip()
+    module_ids = request.data.get("module_ids") or []
 
-    if not all([nom, prenom, code_massar, filiere_id]):
+    if not all([nom, prenom, code_massar, filiere_id, semestre]):
         return Response(
-            {"message": "Nom, prénom, code Massar et filière sont requis."},
+            {"message": "Nom, prénom, code Massar, filière et semestre sont requis."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -351,7 +363,9 @@ def update_etudiant(request, etudiant_id):
 
             etudiant.code_massar = code_massar
             etudiant.filiere = filiere
+            etudiant.semestre = semestre
             etudiant.save()
+            etudiant.modules.set(module_ids)
     except IntegrityError:
         return Response(
             {"message": "Un utilisateur avec cet email ou ce code Massar existe déjà."},

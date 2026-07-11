@@ -21,6 +21,7 @@ interface Etudiant {
   prenom: string;
   email: string;
   filiere: FiliereOption;
+  semestre?: string;
   modules: ModuleItem[];
 }
 
@@ -471,11 +472,14 @@ export default function EtudiantsPage() {
     password: "",
     code_massar: "",
     filiere_id: "",
+    semestre: "",
+    module_ids: [] as number[],
   });
   const role = getUserRole();
 
   const [activeTab, setActiveTab] = useState<"manual" | "import">("manual");
   const [importFiliere, setImportFiliere] = useState("");
+  const [importSemester, setImportSemester] = useState("");
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
@@ -485,7 +489,7 @@ export default function EtudiantsPage() {
   } | null>(null);
 
   const handleImportExcel = async () => {
-    if (!importFile || !importFiliere) return;
+    if (!importFile || !importFiliere || !importSemester) return;
     setImporting(true);
     setError("");
     setImportResult(null);
@@ -493,6 +497,7 @@ export default function EtudiantsPage() {
     const formData = new FormData();
     formData.append("file", importFile);
     formData.append("filiere_id", importFiliere);
+    formData.append("semestre", importSemester);
 
     try {
       const res = await fetch(`${API_BASE}/etudiants/import/`, {
@@ -572,6 +577,8 @@ export default function EtudiantsPage() {
     password: "",
     code_massar: "",
     filiere_id: "",
+    semestre: "",
+    module_ids: [] as number[],
   });
   const [deletingStudentId, setDeletingStudentId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -587,6 +594,8 @@ export default function EtudiantsPage() {
       password: "",
       code_massar: etudiant.code_massar,
       filiere_id: String(etudiant.filiere.id),
+      semestre: etudiant.semestre || "",
+      module_ids: etudiant.modules.map((m) => m.id),
     });
   };
 
@@ -794,6 +803,8 @@ export default function EtudiantsPage() {
         password: "",
         code_massar: "",
         filiere_id: "",
+        semestre: "",
+        module_ids: [],
       });
     } catch {
       setError("Erreur de connexion avec le serveur.");
@@ -893,13 +904,94 @@ export default function EtudiantsPage() {
                   </div>
                   <div className="et-filter">
                     <label>Filière</label>
-                    <select value={form.filiere_id} onChange={(event) => updateForm("filiere_id", event.target.value)} required>
+                    <select
+                      value={form.filiere_id}
+                      onChange={(event) => {
+                        const fid = event.target.value;
+                        setForm((prev) => ({ ...prev, filiere_id: fid, semestre: "", module_ids: [] }));
+                      }}
+                      required
+                    >
                       <option value="">Choisir une filière</option>
                       {filieres.map((filiere) => (
                         <option value={filiere.id} key={filiere.id}>{filiere.nom}</option>
                       ))}
                     </select>
                   </div>
+                  {form.filiere_id && (
+                    <div className="et-filter">
+                      <label>Semestre</label>
+                      <select
+                        value={form.semestre}
+                        onChange={(event) => {
+                          const sem = event.target.value;
+                          const semesterModules = modules
+                            .filter((m) => String(m.filiere_id) === form.filiere_id && m.semestre === sem)
+                            .map((m) => m.id);
+                          setForm((prev) => ({ ...prev, semestre: sem, module_ids: semesterModules }));
+                        }}
+                        required
+                      >
+                        <option value="">Choisir un semestre</option>
+                        {filieres
+                          .find((f) => String(f.id) === form.filiere_id)
+                          ?.semesters.map((sem) => (
+                            <option value={sem} key={sem}>{sem}</option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+                  {form.filiere_id && form.semestre && (
+                    <div style={{ gridColumn: "1 / -1", marginTop: "8px", borderTop: "1px solid var(--gray-200)", paddingTop: "12px", marginBottom: "12px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: "bold", color: "var(--gray-800)" }}>Modules du semestre</span>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button
+                            type="button"
+                            className="et-btn-action edit"
+                            style={{ padding: "2px 8px", fontSize: "10px", height: "auto" }}
+                            onClick={() => {
+                              const semesterModules = modules
+                                .filter((m) => String(m.filiere_id) === form.filiere_id && m.semestre === form.semestre)
+                                .map((m) => m.id);
+                              setForm((prev) => ({ ...prev, module_ids: semesterModules }));
+                            }}
+                          >
+                            Tout cocher
+                          </button>
+                          <button
+                            type="button"
+                            className="et-btn-action delete"
+                            style={{ padding: "2px 8px", fontSize: "10px", height: "auto" }}
+                            onClick={() => setForm((prev) => ({ ...prev, module_ids: [] }))}
+                          >
+                            Tout décocher
+                          </button>
+                        </div>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "8px" }}>
+                        {modules
+                          .filter((m) => String(m.filiere_id) === form.filiere_id && m.semestre === form.semestre)
+                          .map((m) => (
+                            <label key={m.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "var(--gray-600)", cursor: "pointer" }}>
+                              <input
+                                type="checkbox"
+                                className="et-checkbox"
+                                checked={form.module_ids.includes(m.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setForm((prev) => ({ ...prev, module_ids: [...prev.module_ids, m.id] }));
+                                  } else {
+                                    setForm((prev) => ({ ...prev, module_ids: prev.module_ids.filter((id) => id !== m.id) }));
+                                  }
+                                }}
+                              />
+                              <span>{m.nom}</span>
+                            </label>
+                          ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="et-form-actions">
                     <button className="et-btn" type="submit" disabled={creating} style={{ marginBottom: "14px" }}>
                       {creating ? (
@@ -913,14 +1005,37 @@ export default function EtudiantsPage() {
                 </form>
               ) : (
                 <div className="et-import-panel">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
                     <div className="et-filter">
                       <label>Filière de destination</label>
-                      <select value={importFiliere} onChange={(event) => setImportFiliere(event.target.value)} required>
+                      <select
+                        value={importFiliere}
+                        onChange={(event) => {
+                          setImportFiliere(event.target.value);
+                          setImportSemester("");
+                        }}
+                        required
+                      >
                         <option value="">Choisir une filière</option>
                         {filieres.map((filiere) => (
                           <option value={filiere.id} key={filiere.id}>{filiere.nom}</option>
                         ))}
+                      </select>
+                    </div>
+                    <div className="et-filter">
+                      <label>Semestre</label>
+                      <select
+                        value={importSemester}
+                        onChange={(event) => setImportSemester(event.target.value)}
+                        required
+                        disabled={!importFiliere}
+                      >
+                        <option value="">Choisir un semestre</option>
+                        {filieres
+                          .find((f) => String(f.id) === importFiliere)
+                          ?.semesters.map((sem) => (
+                            <option value={sem} key={sem}>{sem}</option>
+                          ))}
                       </select>
                     </div>
                     <div className="et-filter" style={{ justifyContent: "center", border: "none", background: "transparent", padding: 0 }}>
@@ -938,7 +1053,7 @@ export default function EtudiantsPage() {
                     <button
                       className="et-btn"
                       type="button"
-                      disabled={importing || !importFiliere || !importFile}
+                      disabled={importing || !importFiliere || !importSemester || !importFile}
                       onClick={handleImportExcel}
                     >
                       {importing ? (
@@ -1117,7 +1232,14 @@ export default function EtudiantsPage() {
                           <div className="et-email">{etudiant.email}</div>
                         </td>
                         <td>{etudiant.code_massar}</td>
-                        <td><span className="et-badge">{etudiant.filiere.nom}</span></td>
+                        <td>
+                          <span className="et-badge">{etudiant.filiere.nom}</span>
+                          {etudiant.semestre && (
+                            <span className="et-badge" style={{ marginLeft: "6px", background: "rgba(246, 147, 31, 0.1)", color: "#f6931f" }}>
+                              {etudiant.semestre}
+                            </span>
+                          )}
+                        </td>
                         {role === "admin" && (
                           <td>
                             <div style={{ display: "flex", gap: "8px" }}>
@@ -1198,7 +1320,7 @@ export default function EtudiantsPage() {
                     <label>Filière</label>
                     <select
                       value={editForm.filiere_id}
-                      onChange={(e) => setEditForm({ ...editForm, filiere_id: e.target.value })}
+                      onChange={(e) => setEditForm({ ...editForm, filiere_id: e.target.value, semestre: "", module_ids: [] })}
                       required
                     >
                       <option value="">Choisir une filière</option>
@@ -1209,6 +1331,82 @@ export default function EtudiantsPage() {
                       ))}
                     </select>
                   </div>
+                  {editForm.filiere_id && (
+                    <div className="et-filter">
+                      <label>Semestre</label>
+                      <select
+                        value={editForm.semestre}
+                        onChange={(e) => {
+                          const sem = e.target.value;
+                          const semesterModules = modules
+                            .filter((m) => String(m.filiere_id) === editForm.filiere_id && m.semestre === sem)
+                            .map((m) => m.id);
+                          setEditForm({ ...editForm, semestre: sem, module_ids: semesterModules });
+                        }}
+                        required
+                      >
+                        <option value="">Choisir un semestre</option>
+                        {filieres
+                          .find((f) => String(f.id) === editForm.filiere_id)
+                          ?.semesters.map((sem) => (
+                            <option value={sem} key={sem}>
+                              {sem}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+                  {editForm.filiere_id && editForm.semestre && (
+                    <div style={{ marginTop: "8px", borderTop: "1px solid var(--gray-200)", paddingTop: "12px", marginBottom: "8px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: "bold", color: "var(--gray-800)" }}>Modules du semestre</span>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button
+                            type="button"
+                            className="et-btn-action edit"
+                            style={{ padding: "2px 8px", fontSize: "10px", height: "auto" }}
+                            onClick={() => {
+                              const semesterModules = modules
+                                .filter((m) => String(m.filiere_id) === editForm.filiere_id && m.semestre === editForm.semestre)
+                                .map((m) => m.id);
+                              setEditForm({ ...editForm, module_ids: semesterModules });
+                            }}
+                          >
+                            Tout cocher
+                          </button>
+                          <button
+                            type="button"
+                            className="et-btn-action delete"
+                            style={{ padding: "2px 8px", fontSize: "10px", height: "auto" }}
+                            onClick={() => setEditForm({ ...editForm, module_ids: [] })}
+                          >
+                            Tout décocher
+                          </button>
+                        </div>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", maxHeight: "150px", overflowY: "auto" }}>
+                        {modules
+                          .filter((m) => String(m.filiere_id) === editForm.filiere_id && m.semestre === editForm.semestre)
+                          .map((m) => (
+                            <label key={m.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "var(--gray-600)", cursor: "pointer" }}>
+                              <input
+                                type="checkbox"
+                                className="et-checkbox"
+                                checked={editForm.module_ids.includes(m.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setEditForm({ ...editForm, module_ids: [...editForm.module_ids, m.id] });
+                                  } else {
+                                    setEditForm({ ...editForm, module_ids: editForm.module_ids.filter((id) => id !== m.id) });
+                                  }
+                                }}
+                              />
+                              <span>{m.nom}</span>
+                            </label>
+                          ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="et-modal-actions">
                     <button type="button" className="et-btn-secondary" onClick={() => setEditingStudent(null)}>
                       Annuler
