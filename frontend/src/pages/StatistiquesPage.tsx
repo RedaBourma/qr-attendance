@@ -566,13 +566,13 @@ export default function StatistiquesPage() {
                                 const fil = academicData?.filieres.find(f => f.nom === course.filiere);
                                 if (fil) {
                                   setSelectedFiliereId(String(fil.id));
-                                  if (course.semestre !== "Tous" && !fil.semesters.includes(course.semestre)) {
-                                    setExportSemester("Tous");
-                                  } else {
+                                  if (course.semestre !== "Tous" && fil.semesters.includes(course.semestre)) {
                                     setExportSemester(course.semestre);
+                                  } else {
+                                    setExportSemester("");
                                   }
                                 } else {
-                                  setExportSemester("Tous");
+                                  setExportSemester("");
                                 }
                               }}
                             >
@@ -636,7 +636,7 @@ export default function StatistiquesPage() {
                         onClick={() => {
                           setExportScope("class");
                           setSelectedFiliereId("");
-                          setExportSemester("Tous");
+                          setExportSemester("");
                         }}
                       >
                         🏫 Classe / Filière
@@ -765,7 +765,8 @@ export default function StatistiquesPage() {
                         setExportModuleId("");
                       }}
                     >
-                      <option value="Tous">Tous les semestres</option>
+                      {exportScope !== "class" && <option value="Tous">Tous les semestres</option>}
+                      {exportScope === "class" && <option value="">-- Choisir un semestre --</option>}
                       {availableSemesters.map((sem) => (
                         <option key={sem} value={sem}>
                           {sem}
@@ -774,7 +775,7 @@ export default function StatistiquesPage() {
                     </select>
                   </div>
 
-                  {exportScope === "class" && selectedFiliereId && exportSemester !== "Tous" && (
+                  {exportScope === "class" && selectedFiliereId && exportSemester && exportSemester !== "Tous" && (
                     <div className="ext-section">
                       <span className="ext-label">Module (Optionnel)</span>
                       <select
@@ -817,7 +818,7 @@ export default function StatistiquesPage() {
                     disabled={
                       exporting ||
                       (exportScope === "student" && !selectedStudent) ||
-                      (exportScope === "class" && !selectedFiliereId) ||
+                      (exportScope === "class" && (!selectedFiliereId || !exportSemester || exportSemester === "Tous")) ||
                       (exportScope === "teacher" && !selectedTeacherId)
                     }
                   >
