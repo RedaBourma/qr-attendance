@@ -48,8 +48,10 @@ class DashboardViewTestCase(APITestCase):
         self.student_profile = Etudiant.objects.create(
             user=self.student_user,
             code_massar="R123456789",
-            filiere=self.filiere
+            filiere=self.filiere,
+            semestre="S1"
         )
+        self.student_profile.modules.add(self.module)
 
         # Create Cours
         self.cours = Cours.objects.create(
@@ -188,3 +190,59 @@ class DashboardViewTestCase(APITestCase):
             {"scope": "invalid-scope"}
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_student_with_semester_and_modules(self):
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.post(
+            "/api/etudiants/create/",
+            {
+                "nom": "Dupont",
+                "prenom": "Jean",
+                "code_massar": "R999888777",
+                "filiere_id": self.filiere.id,
+                "semestre": "S1",
+                "module_ids": [self.module.id]
+            }
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        data = response.json()
+        self.assertEqual(data["semestre"], "S1")
+        self.assertEqual(len(data["modules"]), 1)
+        self.assertEqual(data["modules"][0]["id"], self.module.id)
+
+    def test_submit_qr_scan_not_enrolled(self):
+        # Create a module the student is NOT registered in
+        other_module = Module.objects.create(nom="Unregistered Module", filiere=self.filiere, semestre="S1")
+        other_cours = Cours.objects.create(
+            module=other_module,
+            enseignant=self.teacher_profile,
+            salle="Salle 3",
+            jour=2,
+            heure_debut=time(10, 30),
+            heure_fin=time(12, 30),
+            actif=True
+        )
+        other_seance = Seance.objects.create(
+            cours=other_cours,
+            enseignant=self.teacher_profile,
+            date_seance=date.today(),
+            heure_debut=timezone.now(),
+            validite_min=120,
+            est_ouverte=True
+        )
+        other_qrcode = QRCode.objects.create(
+            url_cible="http://example.com/scan/def",
+            token="def",
+            expiration=timezone.now() + timedelta(hours=2),
+            seance=other_seance
+        )
+        # Student tries to submit presence for a module they are not registered in
+        response = self.client.post(
+            f"/api/scan/def/submit/",
+            {
+                "code_massar": self.student_profile.code_massar,
+                "name": f"{self.student_profile.user.prenom} {self.student_profile.user.nom}"
+            }
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn("n'est pas inscrit à ce module", response.json()["message"])

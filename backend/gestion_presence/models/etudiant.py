@@ -16,6 +16,12 @@ class Etudiant(models.Model):
         on_delete=models.PROTECT,
         related_name="etudiants",
     )
+    semestre = models.CharField(max_length=30, blank=True, null=True)
+    modules = models.ManyToManyField(
+        "Module",
+        related_name="etudiants",
+        blank=True,
+    )
 
     class Meta:
         db_table = "etudiants"

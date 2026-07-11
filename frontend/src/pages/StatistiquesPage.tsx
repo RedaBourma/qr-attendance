@@ -309,6 +309,7 @@ export default function StatistiquesPage() {
     filieres: { id: number; nom: string; semesters: string[] }[];
     enseignants: { id: number; nom: string; prenom: string; email: string; name: string }[];
     semesters: string[];
+    modules: { id: number; nom: string; semestre: string; filiere_id: number }[];
   } | null>(null);
 
   const [exportScope, setExportScope] = useState<"student" | "class" | "teacher">("student");
@@ -320,6 +321,7 @@ export default function StatistiquesPage() {
   
   const [selectedFiliereId, setSelectedFiliereId] = useState("");
   const [selectedTeacherId, setSelectedTeacherId] = useState("");
+  const [exportModuleId, setExportModuleId] = useState("");
   
   const [exporting, setExporting] = useState(false);
 
@@ -402,6 +404,9 @@ export default function StatistiquesPage() {
         params.append("student_id", String(selectedStudent.id));
       } else if (exportScope === "class" && selectedFiliereId) {
         params.append("filiere_id", selectedFiliereId);
+        if (exportModuleId) {
+          params.append("module_id", exportModuleId);
+        }
       } else if (exportScope === "teacher" && selectedTeacherId) {
         params.append("enseignant_id", selectedTeacherId);
       }
@@ -706,7 +711,7 @@ export default function StatistiquesPage() {
                     </>
                   )}
 
-                  {exportScope === "class" && (
+                   {exportScope === "class" && (
                     <div className="ext-section">
                       <span className="ext-label">Sélectionner la classe / filière</span>
                       <select
@@ -715,6 +720,7 @@ export default function StatistiquesPage() {
                         onChange={(e) => {
                           const val = e.target.value;
                           setSelectedFiliereId(val);
+                          setExportModuleId("");
                           const targetFiliere = academicData?.filieres.find((f) => String(f.id) === val);
                           if (targetFiliere && exportSemester !== "Tous" && !targetFiliere.semesters.includes(exportSemester)) {
                             setExportSemester("Tous");
@@ -754,7 +760,10 @@ export default function StatistiquesPage() {
                     <select
                       className="ext-select"
                       value={exportSemester}
-                      onChange={(e) => setExportSemester(e.target.value)}
+                      onChange={(e) => {
+                        setExportSemester(e.target.value);
+                        setExportModuleId("");
+                      }}
                     >
                       <option value="Tous">Tous les semestres</option>
                       {availableSemesters.map((sem) => (
@@ -764,6 +773,30 @@ export default function StatistiquesPage() {
                       ))}
                     </select>
                   </div>
+
+                  {exportScope === "class" && selectedFiliereId && exportSemester !== "Tous" && (
+                    <div className="ext-section">
+                      <span className="ext-label">Module (Optionnel)</span>
+                      <select
+                        className="ext-select"
+                        value={exportModuleId}
+                        onChange={(e) => setExportModuleId(e.target.value)}
+                      >
+                        <option value="">Tous les modules</option>
+                        {academicData?.modules
+                          ?.filter(
+                            (m) =>
+                              String(m.filiere_id) === selectedFiliereId &&
+                              m.semestre === exportSemester
+                          )
+                          .map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.nom}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="ext-section">
                     <span className="ext-label">Type de données</span>
