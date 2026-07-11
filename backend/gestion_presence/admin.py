@@ -171,3 +171,11 @@ class TemporaryPresenceAdmin(admin.ModelAdmin):
     )
     ordering = ("-heure_validation",)
     list_select_related = ("etudiant", "etudiant__user", "seance", "seance__module")
+
+
+@admin.register(Salle)
+class SalleAdmin(admin.ModelAdmin):
+    list_display = ("id", "nom")
+    search_fields = ("nom",)
+    ordering = ("id",)
+

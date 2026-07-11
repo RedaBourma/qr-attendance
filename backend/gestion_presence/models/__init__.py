@@ -9,6 +9,7 @@ from .seance import Seance
 from .presence import Presence
 from .qrcode import QRCode
 from .temp_seance import TemporaryPresence, TemporarySeance
+from .salle import Salle
 
 __all__ = [
     "User",
@@ -23,4 +24,5 @@ __all__ = [
     "QRCode",
     "TemporaryPresence",
     "TemporarySeance",
+    "Salle",
 ]

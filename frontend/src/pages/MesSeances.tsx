@@ -509,6 +509,7 @@ function ProfessorMesSeancesPage() {
 
   const [filieres, setFilieres] = useState<FiliereOption[]>([]);
   const [modules, setModules] = useState<ModuleOption[]>([]);
+  const [salles, setSalles] = useState<{ id: number; nom: string }[]>([]);
   const [tempModuleId, setTempModuleId] = useState("");
   const [tempFiliereId, setTempFiliereId] = useState("");
   const [tempRoom, setTempRoom] = useState("");
@@ -596,6 +597,7 @@ function ProfessorMesSeancesPage() {
           setFilieres(data.filieres || []);
           setModules(data.modules || []);
           setSemestersByFiliere(data.semestersByFiliere || {});
+          setSalles(data.salles || []);
         }
       } catch {
         // Filters are optional; the form will stay disabled until they load.
@@ -944,12 +946,15 @@ function ProfessorMesSeancesPage() {
 
               <div className="sc-field">
                 <label>Salle</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Lab 1"
+                <select
                   value={tempRoom}
                   onChange={(event) => setTempRoom(event.target.value)}
-                />
+                >
+                  <option value="">Non précisée</option>
+                  {salles.map((s) => (
+                    <option key={s.id} value={s.nom}>{s.nom}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="sc-field">

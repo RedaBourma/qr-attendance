@@ -39,12 +39,18 @@ interface AcademicCourse {
   enseignantId: number;
 }
 
+interface SalleOption {
+  id: number;
+  nom: string;
+}
+
 interface AcademicResponse {
   filieres: FiliereOption[];
   modules: ModuleOption[];
   enseignants: TeacherOption[];
   cours: AcademicCourse[];
   semesters: string[];
+  salles: SalleOption[];
 }
 
 const WEEK_DAYS: Array<{ value: WeekDay; label: string }> = [
@@ -170,6 +176,7 @@ export default function GestionEmploiPage() {
   const [modules, setModules] = useState<ModuleOption[]>([]);
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [courses, setCourses] = useState<AcademicCourse[]>([]);
+  const [salles, setSalles] = useState<SalleOption[]>([]);
 
   const [selectedTeacher, setSelectedTeacher] = useState("");
   const [selectedFiliere, setSelectedFiliere] = useState("");
@@ -293,6 +300,7 @@ export default function GestionEmploiPage() {
       setModules(payload.modules || []);
       setTeachers(loadedTeachers);
       setCourses(payload.cours || []);
+      setSalles(payload.salles || []);
 
       // Set defaults dynamically (No "Tous" option allowed)
       if (loadedFilieres.length > 0) {
@@ -808,11 +816,15 @@ export default function GestionEmploiPage() {
                 </div>
                 <div className="am-field">
                   <label>Salle</label>
-                  <input
+                  <select
                     value={courseForm.salle}
                     onChange={(event) => setCourseForm((v) => ({ ...v, salle: event.target.value }))}
-                    placeholder="Ex: Salle 12"
-                  />
+                  >
+                    <option value="">Non précisée</option>
+                    {salles.map((s) => (
+                      <option key={s.id} value={s.nom}>{s.nom}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="am-field">
                   <label>Début *</label>
