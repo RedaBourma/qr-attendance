@@ -5,6 +5,9 @@
 [![Django](https://img.shields.io/badge/Django-5.0-092E20?logo=django&logoColor=white)](https://www.djangoproject.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Render](https://img.shields.io/badge/Render-Deployed-d0417e?logo=render&logoColor=white)](https://qr-attendance-frontend-5496.onrender.com/)
+
+🔗 **Live Deployment / Application en ligne :** [https://qr-attendance-frontend-5496.onrender.com/](https://qr-attendance-frontend-5496.onrender.com/)
 
 A modern, secure, real-time student attendance tracking application. Designed to simplify institutional attendance management using dynamic QR codes and anti-cheating verification mechanisms.
 
