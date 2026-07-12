@@ -5,6 +5,9 @@
 [![Django](https://img.shields.io/badge/Django-5.0-092E20?logo=django&logoColor=white)](https://www.djangoproject.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Render](https://img.shields.io/badge/Render-Deployed-d0417e?logo=render&logoColor=white)](https://qr-attendance-frontend-5496.onrender.com/)
+
+🔗 **Live Deployment / Application en ligne :** [https://qr-attendance-frontend-5496.onrender.com/](https://qr-attendance-frontend-5496.onrender.com/)
 
 A modern, secure, real-time student attendance tracking application. Designed to simplify institutional attendance management using dynamic QR codes and anti-cheating verification mechanisms.
 
@@ -29,7 +32,8 @@ Un système moderne et sécurisé de suivi de présence des étudiants en temps 
 6. [Prerequisites](#prerequisites)
 7. [Installation & Setup](#installation--setup)
 8. [Available Commands (Makefile)](#available-commands-makefile)
-9. [API Endpoints Summary](#api-endpoints-summary)
+9. [Production Deployment (Render & Neon)](#production-deployment-render--neon)
+10. [API Endpoints Summary](#api-endpoints-summary)
 
 ---
 
@@ -155,6 +159,40 @@ The project includes a `Makefile` to simplify command execution:
 
 ---
 
+### Production Deployment (Render & Neon)
+
+The application is configured to run in production using **Render** (for hosting the services) and **Neon** (for the serverless PostgreSQL database).
+
+#### 1. Database Setup (Neon)
+1. Create a serverless PostgreSQL database on [Neon](https://neon.tech/).
+2. Retrieve your connection string (URI format: `postgresql://user:password@host/dbname?sslmode=require`).
+3. The Django backend parses this automatically via `DATABASE_URL` and uses SSL/TLS encryption for safe connection.
+
+#### 2. Backend Deployment (Render Web Service)
+1. Create a new **Web Service** on Render from your repository.
+2. Select **Docker** as the runtime. Render automatically picks up the backend's Dockerfile (or you can use the standard python environment).
+   * *Note:* If deploying using a native Python service:
+     * **Build Command**: `pip install -r backend/requirements.txt && python backend/manage.py collectstatic --noinput`
+     * **Start Command**: `daphne -b 0.0.0.0 -p $PORT core.asgi:application` (to support real-time WebSocket connections).
+3. Set the following **Environment Variables** in Render's configuration:
+   * `DATABASE_URL`: Your Neon connection string.
+   * `DJANGO_SECRET_KEY`: A unique secure key.
+   * `DJANGO_DEBUG`: `False`
+   * `HMAC_KEY`: Unique security key for signing dynamic QR codes.
+   * `FRONTEND_BASE_URL`: The URL of your deployed frontend.
+   * `CORS_ALLOWED_ORIGINS`: Deployed frontend domain (e.g. `https://your-app.onrender.com`).
+   * `CSRF_TRUSTED_ORIGINS`: Deployed frontend domain.
+
+#### 3. Frontend Deployment (Render Static Site)
+1. Create a new **Static Site** on Render from your repository.
+2. Set the configuration details:
+   * **Build Command**: `npm run build`
+   * **Publish Directory**: `frontend/dist`
+3. Add the following **Environment Variable**:
+   * `VITE_API_URL`: Your deployed backend API URL (e.g. `https://your-api.onrender.com/api`).
+
+---
+
 ### API Endpoints Summary
 
 #### Authentication
@@ -191,7 +229,8 @@ The project includes a `Makefile` to simplify command execution:
 6. [Prérequis](#prérequis-1)
 7. [Installation & Configuration](#installation--configuration-1)
 8. [Commandes Disponibles (Makefile)](#commandes-disponibles-makefile)
-9. [Résumé des Points d'Accès API](#résumé-des-points-daccès-api)
+9. [Déploiement en Production (Render & Neon)](#déploiement-en-production-render--neon)
+10. [Résumé des Points d'Accès API](#résumé-des-points-daccès-api)
 
 ---
 
@@ -314,6 +353,40 @@ Le fichier `Makefile` contient plusieurs alias utiles :
 | `make logs-back`| Affiche uniquement les logs du backend. |
 | `make logs-front`| Affiche uniquement les logs du frontend. |
 | `make ps` | Affiche l'état des conteneurs actifs. |
+
+---
+
+### Déploiement en Production (Render & Neon)
+
+L'application est configurée pour être déployée en production avec **Render** (pour l'hébergement des services) et **Neon** (pour la base de données PostgreSQL serverless).
+
+#### 1. Configuration de la base de données (Neon)
+1. Créez une base de données PostgreSQL sur [Neon](https://neon.tech/).
+2. Récupérez la chaîne de connexion (format URI : `postgresql://user:password@host/dbname?sslmode=require`).
+3. Le backend Django l'analysera automatiquement via la variable `DATABASE_URL` et activera les connexions SSL/TLS requises par Neon.
+
+#### 2. Déploiement du Backend (Web Service Render)
+1. Créez un nouveau **Web Service** sur Render connecté à votre dépôt.
+2. Choisissez l'environnement **Docker**. Render détectera automatiquement le Dockerfile du backend (ou utilisez l'environnement natif Python).
+   * *Note :* Si vous utilisez le runtime Python standard :
+     * **Commande de build** : `pip install -r backend/requirements.txt && python backend/manage.py collectstatic --noinput`
+     * **Commande de démarrage** : `daphne -b 0.0.0.0 -p $PORT core.asgi:application` (pour supporter le WebSocket temps réel).
+3. Ajoutez les **Variables d'environnement** sur Render :
+   * `DATABASE_URL` : Votre chaîne de connexion Neon.
+   * `DJANGO_SECRET_KEY` : Clé de sécurité unique.
+   * `DJANGO_DEBUG` : `False`
+   * `HMAC_KEY` : Clé de signature pour générer des QR codes sécurisés.
+   * `FRONTEND_BASE_URL` : URL finale de l'application frontend.
+   * `CORS_ALLOWED_ORIGINS` : Domaine du frontend déployé (ex: `https://votre-app.onrender.com`).
+   * `CSRF_TRUSTED_ORIGINS` : Domaine du frontend déployé.
+
+#### 3. Déploiement du Frontend (Static Site Render)
+1. Créez un nouveau **Static Site** sur Render depuis votre dépôt.
+2. Saisissez les configurations suivantes :
+   * **Commande de build** : `npm run build`
+   * **Dossier de publication** : `frontend/dist`
+3. Ajoutez la **Variable d'environnement** suivante :
+   * `VITE_API_URL` : URL de l'API backend déployée (ex: `https://votre-api.onrender.com/api`).
 
 ---
 
